@@ -1,0 +1,333 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "yieldloop \u2014 wafer triage with a closed human loop",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1330,
+      590
+    ],
+    "views": [
+      {
+        "id": "data-path",
+        "label": "Data path",
+        "focus": [
+          "archive",
+          "ingest",
+          "postgres",
+          "classifier"
+        ],
+        "note": "Real wafer maps from local disk through lot-keyed partitioning into durable state."
+      },
+      {
+        "id": "human-loop",
+        "label": "The closed loop",
+        "focus": [
+          "sampling",
+          "console",
+          "postgres",
+          "classifier"
+        ],
+        "note": "Selection asks a human, and the answer returns as training signal for the next round."
+      },
+      {
+        "id": "guarded-agent",
+        "label": "Guarded agent",
+        "focus": [
+          "retrieval",
+          "guardrails",
+          "openai",
+          "console"
+        ],
+        "note": "Retrieval supplies the only citable evidence; nothing reaches the console ungrounded."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "archive",
+      "type": "external",
+      "label": "WM811K archive",
+      "sublabel": "811,457 wafer maps",
+      "tag": "sha256 verified",
+      "pos": [
+        45,
+        55
+      ],
+      "size": [
+        155,
+        72
+      ]
+    },
+    {
+      "id": "ingest",
+      "type": "backend",
+      "label": "ingest",
+      "sublabel": "normalize, partition",
+      "tag": "lot-keyed splits",
+      "pos": [
+        360,
+        55
+      ],
+      "size": [
+        155,
+        72
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "state + audit trail",
+      "tag": "append-only",
+      "pos": [
+        675,
+        55
+      ],
+      "size": [
+        155,
+        72
+      ]
+    },
+    {
+      "id": "classifier",
+      "type": "backend",
+      "label": "WaferCNN",
+      "sublabel": "305K params",
+      "tag": "calibrated",
+      "pos": [
+        990,
+        55
+      ],
+      "size": [
+        155,
+        72
+      ]
+    },
+    {
+      "id": "sampling",
+      "type": "backend",
+      "label": "sampling",
+      "sublabel": "entropy + diversity",
+      "tag": "pure functions",
+      "pos": [
+        990,
+        245
+      ],
+      "size": [
+        155,
+        76
+      ]
+    },
+    {
+      "id": "retrieval",
+      "type": "backend",
+      "label": "retrieval",
+      "sublabel": "exact index",
+      "pos": [
+        675,
+        245
+      ],
+      "size": [
+        155,
+        76
+      ],
+      "tag": "lot centroids"
+    },
+    {
+      "id": "guardrails",
+      "type": "security",
+      "label": "guardrails",
+      "sublabel": "fails closed",
+      "tag": "not bypassable",
+      "pos": [
+        360,
+        245
+      ],
+      "size": [
+        155,
+        76
+      ]
+    },
+    {
+      "id": "openai",
+      "type": "external",
+      "label": "OpenAI",
+      "sublabel": "hypotheses only",
+      "pos": [
+        675,
+        420
+      ],
+      "size": [
+        155,
+        72
+      ],
+      "tag": "never wafer maps"
+    },
+    {
+      "id": "console",
+      "type": "frontend",
+      "label": "Review console",
+      "sublabel": "three review gates",
+      "tag": "keyboard-first",
+      "pos": [
+        45,
+        245
+      ],
+      "size": [
+        155,
+        76
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "every path into the model",
+      "wraps": [
+        "guardrails",
+        "openai"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "load",
+      "from": "archive",
+      "to": "ingest",
+      "label": "local disk"
+    },
+    {
+      "id": "persist",
+      "from": "ingest",
+      "to": "postgres",
+      "label": "lot-keyed splits"
+    },
+    {
+      "id": "train",
+      "from": "postgres",
+      "to": "classifier",
+      "label": "labeled wafers"
+    },
+    {
+      "id": "score",
+      "from": "classifier",
+      "to": "sampling",
+      "label": "calibrated probabilities",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 28,
+      "labelDx": 74
+    },
+    {
+      "id": "embed",
+      "from": "classifier",
+      "to": "retrieval",
+      "label": "embeddings",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          1067.5,
+          170
+        ],
+        [
+          752.5,
+          170
+        ]
+      ]
+    },
+    {
+      "id": "queue",
+      "from": "sampling",
+      "to": "console",
+      "label": "most informative batch",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          1067.5,
+          525
+        ],
+        [
+          122.5,
+          525
+        ]
+      ]
+    },
+    {
+      "id": "evidence",
+      "from": "retrieval",
+      "to": "guardrails",
+      "label": "evidence bundle"
+    },
+    {
+      "id": "prompt",
+      "from": "guardrails",
+      "to": "openai",
+      "label": "isolated as data",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          437.5,
+          372
+        ],
+        [
+          752.5,
+          372
+        ]
+      ]
+    },
+    {
+      "id": "grounded",
+      "from": "guardrails",
+      "to": "console",
+      "label": "grounded claims only",
+      "variant": "security"
+    },
+    {
+      "id": "feedback",
+      "from": "console",
+      "to": "postgres",
+      "label": "decisions become training signal",
+      "variant": "emphasis",
+      "fromSide": "left",
+      "toSide": "top",
+      "via": [
+        [
+          20,
+          283
+        ],
+        [
+          20,
+          18
+        ],
+        [
+          752.5,
+          18
+        ]
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "The loop closes",
+      "items": [
+        "Reviewer labels override the dataset's own",
+        "Holdout decisions cannot leak into training"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Nothing reaches the model unguarded",
+      "items": [
+        "Bounded before a token is spent",
+        "Cite retrieved evidence, or abstain"
+      ]
+    }
+  ]
+}

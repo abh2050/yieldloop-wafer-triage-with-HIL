@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "The human loop, closing \u2014 a decision returns as training signal",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [
+      1070,
+      615
+    ],
+    "views": [
+      {
+        "id": "selection",
+        "label": "What to ask",
+        "focus": [
+          "samp",
+          "queue",
+          "rev"
+        ],
+        "note": "Entropy finds the uncertain wafers; diversity stops the round spending itself on near-duplicates."
+      },
+      {
+        "id": "the-answer",
+        "label": "The answer",
+        "focus": [
+          "rev",
+          "dec",
+          "db"
+        ],
+        "note": "A label, the time it took, and what the reviewer could see."
+      },
+      {
+        "id": "closing",
+        "label": "Closing the loop",
+        "focus": [
+          "db",
+          "train",
+          "queue"
+        ],
+        "note": "The next round trains on corrected labels, and disagreement tunes the floor."
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "samp",
+      "type": "backend",
+      "label": "sampling",
+      "sublabel": "pure functions"
+    },
+    {
+      "id": "queue",
+      "type": "backend",
+      "label": "label queue",
+      "sublabel": "gate 1"
+    },
+    {
+      "id": "rev",
+      "type": "external",
+      "label": "Reviewer",
+      "sublabel": "keyboard only"
+    },
+    {
+      "id": "dec",
+      "type": "backend",
+      "label": "decisions",
+      "sublabel": "service"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Postgres",
+      "sublabel": "state + audit"
+    },
+    {
+      "id": "train",
+      "type": "backend",
+      "label": "next round",
+      "sublabel": "training"
+    }
+  ],
+  "segments": [
+    {
+      "from": 160,
+      "to": 286,
+      "label": "Choose what is worth asking"
+    },
+    {
+      "from": 296,
+      "to": 416,
+      "label": "One keystroke, fully recorded"
+    },
+    {
+      "from": 426,
+      "to": 550,
+      "label": "The loop closes"
+    }
+  ],
+  "messages": [
+    {
+      "id": "pool",
+      "from": "db",
+      "to": "samp",
+      "y": 178,
+      "label": "unlabeled pool",
+      "variant": "return"
+    },
+    {
+      "id": "diverse",
+      "from": "samp",
+      "to": "queue",
+      "y": 220,
+      "label": "entropy + diversity selects the batch",
+      "note": "Diversity stops redundant batches"
+    },
+    {
+      "id": "present",
+      "from": "queue",
+      "to": "rev",
+      "y": 262,
+      "label": "wafer map only, prediction withheld",
+      "variant": "emphasis"
+    },
+    {
+      "id": "label",
+      "from": "rev",
+      "to": "dec",
+      "y": 312,
+      "label": "one keystroke: class + elapsed ms",
+      "variant": "emphasis"
+    },
+    {
+      "id": "store",
+      "from": "dec",
+      "to": "db",
+      "y": 354,
+      "label": "is_override, prediction_was_shown"
+    },
+    {
+      "id": "audited",
+      "from": "dec",
+      "to": "db",
+      "y": 394,
+      "label": "append-only audit record",
+      "variant": "dashed"
+    },
+    {
+      "id": "override",
+      "from": "db",
+      "to": "train",
+      "y": 446,
+      "label": "reviewer label overrides the dataset",
+      "variant": "emphasis"
+    },
+    {
+      "id": "scoped",
+      "from": "train",
+      "to": "db",
+      "y": 486,
+      "label": "scoped to its split, holdout cannot leak",
+      "variant": "security"
+    },
+    {
+      "id": "floor",
+      "from": "db",
+      "to": "queue",
+      "y": 528,
+      "label": "override rate splits by what was shown, tuning the floor",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "violet",
+      "title": "Two return paths",
+      "items": [
+        "Corrections retrain the model",
+        "Disagreement tunes the confidence floor"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,242 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Routing bands \u2014 what automation costs, and who is allowed to see the guess",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "automated",
+        "label": "Committed without a human",
+        "focus": [
+          "pred",
+          "route",
+          "commit",
+          "escaped"
+        ],
+        "note": "87.75% of wafers commit unreviewed, and 0.44% of all wafers are errors that escaped review."
+      },
+      {
+        "id": "anchoring",
+        "label": "The anchoring rule",
+        "focus": [
+          "route",
+          "withheld",
+          "decided"
+        ],
+        "note": "Below the floor the prediction is withheld, so a weak guess cannot buy agreement."
+      },
+      {
+        "id": "signal",
+        "label": "Back to training",
+        "focus": [
+          "shown",
+          "withheld",
+          "decided",
+          "signal"
+        ],
+        "note": "Every decision records what the reviewer could see."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "model",
+      "label": "Model output"
+    },
+    {
+      "id": "auto",
+      "label": "Automated"
+    },
+    {
+      "id": "confirm",
+      "label": "Human review"
+    },
+    {
+      "id": "blind",
+      "label": "Human review, prediction withheld",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "predict",
+      "label": "Predict",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "route",
+      "label": "Route by calibrated confidence",
+      "fromCol": 2,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "outcome",
+      "label": "Outcome",
+      "fromCol": 3,
+      "toCol": 4
+    }
+  ],
+  "mainPath": [
+    "pred",
+    "route",
+    "shown",
+    "decided",
+    "signal"
+  ],
+  "nodes": [
+    {
+      "id": "pred",
+      "lane": "model",
+      "col": 0,
+      "type": "backend",
+      "label": "Calibrated prediction",
+      "sublabel": "temperature 0.926",
+      "width": 150
+    },
+    {
+      "id": "route",
+      "lane": "model",
+      "col": 1,
+      "type": "security",
+      "label": "Routing bands",
+      "sublabel": "config, not constants",
+      "tag": "swept by the harness",
+      "width": 150
+    },
+    {
+      "id": "commit",
+      "lane": "auto",
+      "col": 2,
+      "type": "backend",
+      "label": "Committed",
+      "sublabel": "no human sees it",
+      "tag": "87.75% of wafers",
+      "width": 150
+    },
+    {
+      "id": "escaped",
+      "lane": "auto",
+      "col": 3,
+      "type": "external",
+      "label": "Escaped errors",
+      "sublabel": "wrong and never reviewed",
+      "tag": "0.44%",
+      "width": 150
+    },
+    {
+      "id": "shown",
+      "lane": "confirm",
+      "col": 2,
+      "type": "frontend",
+      "label": "Prediction shown",
+      "sublabel": "uncertainty band",
+      "width": 150
+    },
+    {
+      "id": "withheld",
+      "lane": "blind",
+      "col": 2,
+      "type": "security",
+      "label": "Prediction withheld",
+      "sublabel": "API omits the field",
+      "tag": "prevents anchoring",
+      "width": 150
+    },
+    {
+      "id": "decided",
+      "lane": "confirm",
+      "col": 3,
+      "type": "backend",
+      "label": "Human decision",
+      "sublabel": "label + what was visible",
+      "width": 150
+    },
+    {
+      "id": "signal",
+      "lane": "confirm",
+      "col": 4,
+      "type": "database",
+      "label": "Training signal",
+      "sublabel": "the next round reads it",
+      "width": 150
+    }
+  ],
+  "edges": [
+    {
+      "id": "to-route",
+      "from": "pred",
+      "to": "route",
+      "variant": "default"
+    },
+    {
+      "id": "auto-band",
+      "from": "route",
+      "to": "commit",
+      "label": "confidence >= 0.95",
+      "variant": "default"
+    },
+    {
+      "id": "band",
+      "from": "route",
+      "to": "shown",
+      "label": "0.55 to 0.95",
+      "variant": "emphasis"
+    },
+    {
+      "id": "floor",
+      "from": "route",
+      "to": "withheld",
+      "label": "below 0.55",
+      "variant": "security"
+    },
+    {
+      "id": "cost",
+      "from": "commit",
+      "to": "escaped",
+      "label": "the cost of automation",
+      "variant": "dashed",
+      "role": "error"
+    },
+    {
+      "id": "shown-decided",
+      "from": "shown",
+      "to": "decided",
+      "variant": "default"
+    },
+    {
+      "id": "blind-decided",
+      "from": "withheld",
+      "to": "decided",
+      "label": "judged cold",
+      "variant": "security"
+    },
+    {
+      "id": "to-signal",
+      "from": "decided",
+      "to": "signal",
+      "label": "with the anchoring flag",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Automated",
+      "items": [
+        "87.75% committed with no human",
+        "0.44% are escaped errors"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Why the floor exists",
+      "items": [
+        "A weak guess anchors rather than helps",
+        "So the API omits the field entirely"
+      ]
+    }
+  ]
+}

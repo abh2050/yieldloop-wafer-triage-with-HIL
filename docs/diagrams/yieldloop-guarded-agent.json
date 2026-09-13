@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "A guarded hypothesis request \u2014 the ordering is the design",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [
+      1070,
+      645
+    ],
+    "views": [
+      {
+        "id": "before-spend",
+        "label": "Before any spend",
+        "focus": [
+          "eng",
+          "api",
+          "ret",
+          "db"
+        ],
+        "note": "Inputs bounded and evidence assembled before a token is spent."
+      },
+      {
+        "id": "the-call",
+        "label": "The guarded call",
+        "focus": [
+          "gr",
+          "llm"
+        ],
+        "note": "Untrusted text is isolated as data and the model is held to a strict schema."
+      },
+      {
+        "id": "after-the-call",
+        "label": "Fail closed",
+        "focus": [
+          "gr",
+          "db",
+          "eng"
+        ],
+        "note": "Parse and grounding both run before anything is persisted or shown."
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "eng",
+      "type": "external",
+      "label": "Engineer",
+      "sublabel": "review console"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "API",
+      "sublabel": "route handler"
+    },
+    {
+      "id": "ret",
+      "type": "backend",
+      "label": "retrieval",
+      "sublabel": "evidence bundle"
+    },
+    {
+      "id": "gr",
+      "type": "security",
+      "label": "guardrails",
+      "sublabel": "not bypassable"
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "OpenAI",
+      "sublabel": "hypotheses only"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Postgres",
+      "sublabel": "state + audit"
+    }
+  ],
+  "segments": [
+    {
+      "from": 162,
+      "to": 366,
+      "label": "Before a token is spent"
+    },
+    {
+      "from": 374,
+      "to": 496,
+      "label": "The guarded call"
+    },
+    {
+      "from": 504,
+      "to": 580,
+      "label": "Fail closed, then persist"
+    }
+  ],
+  "messages": [
+    {
+      "id": "request",
+      "from": "eng",
+      "to": "api",
+      "y": 180,
+      "label": "POST /hypothesis {lot}",
+      "variant": "emphasis"
+    },
+    {
+      "id": "bound",
+      "from": "api",
+      "to": "gr",
+      "y": 222,
+      "label": "bound inputs, check spend ceilings",
+      "variant": "security",
+      "note": "Refused here costs nothing"
+    },
+    {
+      "id": "assemble",
+      "from": "api",
+      "to": "ret",
+      "y": 264,
+      "label": "assemble context bundle"
+    },
+    {
+      "id": "read",
+      "from": "ret",
+      "to": "db",
+      "y": 306,
+      "label": "predictions, die stats, process events"
+    },
+    {
+      "id": "bundle",
+      "from": "ret",
+      "to": "gr",
+      "y": 348,
+      "label": "every item carries an evidence_id",
+      "variant": "return"
+    },
+    {
+      "id": "abstain-empty",
+      "from": "gr",
+      "to": "eng",
+      "y": 392,
+      "label": "empty bundle: abstain, no model call",
+      "variant": "return"
+    },
+    {
+      "id": "prompt",
+      "from": "gr",
+      "to": "llm",
+      "y": 434,
+      "label": "isolated as data, strict JSON schema",
+      "variant": "security"
+    },
+    {
+      "id": "candidates",
+      "from": "llm",
+      "to": "gr",
+      "y": 476,
+      "label": "candidate hypotheses",
+      "variant": "return"
+    },
+    {
+      "id": "abstain-ungrounded",
+      "from": "gr",
+      "to": "eng",
+      "y": 518,
+      "label": "nothing survives grounding: abstain",
+      "variant": "return"
+    },
+    {
+      "id": "persist",
+      "from": "gr",
+      "to": "db",
+      "y": 558,
+      "label": "only grounded claims, then audit",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Before the call",
+      "items": [
+        "Bounded before a token is spent",
+        "An empty bundle abstains without calling"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "After the call",
+      "items": [
+        "Strict parse, no lenient path",
+        "A partly-fabricated claim is dropped whole"
+      ]
+    }
+  ]
+}
