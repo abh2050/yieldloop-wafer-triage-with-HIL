@@ -60,6 +60,9 @@ ignore = ["A003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ARG001", "ARG002"]
+# conftest must set thread limits before importing torch; that is the whole
+# point, so the import cannot move to the top of the file.
+"tests/conftest.py" = ["ARG001", "ARG002", "E402"]
 # The adversarial corpus deliberately contains fullwidth, zero-width, and
 # bidirectional characters: they are the payload under test, not typos.
 "tests/guardrails/*" = ["ARG001", "ARG002", "RUF001"]

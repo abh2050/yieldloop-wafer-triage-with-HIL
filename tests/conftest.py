@@ -10,10 +10,22 @@ resource is genuinely unavailable, never as a substitute that pretends it is.
 from __future__ import annotations
 
 import os
+
+# Must be set before torch initializes its thread pool. Running the full suite
+# with torch's default multi-threaded CPU backend segfaults on macOS inside
+# softmax once several test modules have exercised torch -- two OpenMP runtimes
+# end up loaded in one process. Pinning to a single thread is the documented
+# workaround, costs nothing here (the tensors in these tests are tiny), and is
+# far better than a suite that crashes intermittently and gets rerun until green.
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+
+
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+import torch
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import Engine, text
@@ -22,6 +34,8 @@ from testcontainers.community.postgres import PostgresContainer
 
 from yieldloop.config import Settings
 from yieldloop.db.session import build_engine
+
+torch.set_num_threads(1)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ALEMBIC_INI = REPO_ROOT / "src" / "yieldloop" / "db" / "migrations" / "alembic.ini"
