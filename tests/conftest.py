@@ -114,10 +114,21 @@ def db_session(migrated_engine: Engine) -> Iterator[Session]:
 
 @pytest.fixture(scope="session")
 def openai_api_key() -> str:
-    """The live API key, or skip. Never a placeholder."""
-    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    """The live API key, or skip. Never a placeholder.
+
+    Resolved through Settings, not just os.environ. The documented place to put
+    the key is `.env`, which pydantic-settings loads and a bare environ lookup
+    does not -- so reading only the environment meant a developer who followed
+    the README got these tests skipped forever, silently, while believing the
+    live contract was being checked on every run. A skip that cannot be
+    distinguished from a pass is worse than a failure.
+    """
+    key = Settings().openai_api_key.get_secret_value().strip()
     if not key:
-        pytest.skip("OPENAI_API_KEY is not set; live contract tests cannot run")
+        pytest.skip(
+            "OPENAI_API_KEY is not set in the environment or .env; "
+            "live contract tests cannot run"
+        )
     return key
 
 
