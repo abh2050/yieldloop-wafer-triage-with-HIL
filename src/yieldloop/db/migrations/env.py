@@ -15,7 +15,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", str(get_settings().database_url))
+# A caller that has already supplied a URL wins -- the test session points this
+# at its own container, and silently overriding it here would migrate the
+# developer's local database while the tests ran against an empty one.
+if not config.get_main_option("sqlalchemy.url", default=None):
+    config.set_main_option("sqlalchemy.url", str(get_settings().database_url))
 
 target_metadata = Base.metadata
 

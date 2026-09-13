@@ -36,7 +36,7 @@ dev = [
     "pytest-timeout>=2.3",
     "httpx>=0.28",
     "hypothesis>=6.119",
-    "testcontainers[postgres]>=4.8",
+    "testcontainers[postgres]>=4.13",
     "mypy>=1.13",
     "ruff>=0.8",
     "pandas-stubs>=2.2",
@@ -68,7 +68,7 @@ warn_unreachable = true
 disallow_any_unimported = true
 plugins = ["pydantic.mypy"]
 mypy_path = "src"
-packages = ["yieldloop"]
+files = ["src", "scripts", "tests"]
 
 [[tool.mypy.overrides]]
 module = ["faiss.*", "kaggle.*", "testcontainers.*"]
