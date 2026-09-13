@@ -32,8 +32,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from yieldloop.config import Settings, get_settings
-from yieldloop.db.enums import SamplingStrategy, SplitName, TaskGate
-from yieldloop.db.models import ActiveRound, Prediction, Wafer
+from yieldloop.db.enums import SamplingStrategy, SplitName, TaskGate, TaskState
+from yieldloop.db.models import ActiveRound, Prediction, ReviewTask, Wafer
 from yieldloop.db.session import build_engine
 from yieldloop.guardrails.thresholds import RoutingBands, classify
 from yieldloop.logging import configure_logging, get_logger
@@ -131,6 +131,7 @@ def run_round(
     artifact_id = _active_artifact_id(session)
 
     created = 0
+    skipped = 0
     for rank, wafer_id in enumerate(selection.wafer_ids):
         index = position[wafer_id]
         wafer = session.execute(select(Wafer).where(Wafer.wafer_id == wafer_id)).scalar_one()
@@ -140,21 +141,50 @@ def run_round(
         confidence = float(row[top])
         decision = classify(confidence, bands)
 
-        prediction = Prediction(
-            wafer_id=wafer.id,
-            artifact_id=artifact_id,
-            predicted_label=CLASS_ORDER[top],
-            confidence=confidence,
-            probabilities=probabilities_to_dict(row),
-            entropy=float(entropies[index]),
-            routing_band=decision.band,
-            auto_commit_threshold=bands.auto_commit_threshold,
-            confidence_floor=bands.confidence_floor,
-            embedding=encode_embedding(embeddings[index]),
-            inference_ms=inference_ms,
-        )
-        session.add(prediction)
+        # One prediction per wafer per artifact is a schema invariant, and the
+        # candidate pool is deterministic, so a second round over the same pool
+        # re-selects wafers that already have one. Refresh the existing row
+        # rather than inserting a duplicate: the same model on the same wafer
+        # must not produce two disagreeing records, and crashing the round would
+        # make re-running it impossible.
+        prediction = session.execute(
+            select(Prediction).where(
+                Prediction.wafer_id == wafer.id, Prediction.artifact_id == artifact_id
+            )
+        ).scalar_one_or_none()
+
+        fields = {
+            "predicted_label": CLASS_ORDER[top],
+            "confidence": confidence,
+            "probabilities": probabilities_to_dict(row),
+            "entropy": float(entropies[index]),
+            "routing_band": decision.band,
+            "auto_commit_threshold": bands.auto_commit_threshold,
+            "confidence_floor": bands.confidence_floor,
+            "embedding": encode_embedding(embeddings[index]),
+            "inference_ms": inference_ms,
+        }
+        if prediction is None:
+            prediction = Prediction(wafer_id=wafer.id, artifact_id=artifact_id, **fields)
+            session.add(prediction)
+        else:
+            for key, value in fields.items():
+                setattr(prediction, key, value)
         session.flush()
+
+        # Skip wafers already waiting in the queue from an earlier round. Queuing
+        # the same wafer twice would have two reviewers label it independently,
+        # which is duplicated effort rather than a second opinion.
+        already_queued = session.execute(
+            select(ReviewTask.id).where(
+                ReviewTask.wafer_id == wafer.id,
+                ReviewTask.gate == TaskGate.LABEL,
+                ReviewTask.state.in_((TaskState.PENDING, TaskState.ASSIGNED)),
+            )
+        ).scalar_one_or_none()
+        if already_queued is not None:
+            skipped += 1
+            continue
 
         create_task(
             session,
@@ -172,6 +202,7 @@ def run_round(
         "round_complete",
         strategy=strategy.value,
         selected=created,
+        already_queued=skipped,
         pool=len(dataset),
         truncated=selection.truncated,
         seconds=round(time.monotonic() - started, 1),

@@ -35,6 +35,7 @@ def _classifier_section(result: dict[str, Any]) -> str:
     curve = result["routing_curve"]
     floor = curve[0]["confidence_floor"] if curve else "n/a"
 
+    efficiency = result.get("label_efficiency")
     lines = [
         "## Classifier",
         "",
@@ -157,7 +158,100 @@ def _classifier_section(result: dict[str, Any]) -> str:
                 ["Escaped error rate", _percent(escalation["escaped_error_rate"])],
             ],
         ),
+        "",
+        _label_efficiency_section(efficiency),
     ]
+    return "\n".join(lines)
+
+
+def _label_efficiency_section(efficiency: dict[str, Any] | None) -> str:
+    """Chart 2 of 2: active learning against random, at matched label counts."""
+    if efficiency is None:
+        return (
+            "### Label efficiency\n\n"
+            "**Chart 2 of 2. Not yet run.** The curve requires training both arms at "
+            "several budgets, so it is produced by `python -m scripts.run_label_efficiency` "
+            "rather than recomputed here. Reported as absent rather than approximated: a "
+            "cheaper estimate would not be the quantity the curve claims to measure.\n"
+        )
+
+    comparison = efficiency["comparison"]
+    active = {p["label_count"]: p for p in efficiency["active"]}
+    random_arm = {p["label_count"]: p for p in efficiency["random"]}
+
+    rows = []
+    for budget in sorted(set(active) & set(random_arm)):
+        a, r = active[budget], random_arm[budget]
+        delta = a["macro_f1"] - r["macro_f1"]
+        rows.append(
+            [
+                f"{budget:,}",
+                f"{a['macro_f1']:.4f}",
+                f"{r['macro_f1']:.4f}",
+                f"{delta:+.4f}",
+                f"{a['rare_class_recall']:.3f}",
+                f"{r['rare_class_recall']:.3f}",
+            ]
+        )
+
+    saving = comparison.get("label_saving_ratio")
+    reached = (
+        f"{comparison['strategy_labels_to_target']:,}"
+        if comparison["strategy_labels_to_target"]
+        else "never"
+    )
+    baseline_reached = (
+        f"{comparison['baseline_labels_to_target']:,}"
+        if comparison["baseline_labels_to_target"]
+        else "never"
+    )
+
+    lines = [
+        "### Label efficiency",
+        "",
+        "**Chart 2 of 2.** Entropy-plus-diversity selection against random, compared ",
+        "only at matched label counts. Both arms use the same splits, hyperparameters ",
+        "and seed and differ only in which wafers were chosen.",
+        "",
+        "The active arm is simulated iteratively: the selector at each step is trained ",
+        "only on what has been acquired so far. Selecting in one shot with a model that ",
+        "had seen the whole dataset would leak it into the selection, which is the most ",
+        "common way this experiment is reported wrongly.",
+        "",
+        _table(
+            [
+                "Labels",
+                "Macro F1 (active)",
+                "Macro F1 (random)",
+                "Delta",
+                "Rare recall (active)",
+                "Rare recall (random)",
+            ],
+            rows,
+        ),
+        "",
+        _table(
+            ["Summary", "Value"],
+            [
+                ["Mean macro F1 delta", f"{comparison['mean_delta']:+.4f}"],
+                [f"Labels to reach macro F1 {comparison['target']}", f"active {reached}"],
+                ["", f"random {baseline_reached}"],
+                [
+                    "Label saving",
+                    f"{saving:.2f}x" if saving else "not reached by both arms",
+                ],
+            ],
+        ),
+    ]
+    if comparison["mean_delta"] <= 0:
+        lines += [
+            "",
+            "> The active arm did **not** beat random at these budgets. Reported as "
+            "measured. Active learning commonly underperforms at small budgets, where "
+            "the selector is trained on too little to rank informativeness well -- the "
+            "cold-start problem. The honest reading is that the benefit, if any, appears "
+            "at larger budgets than these.",
+        ]
     return "\n".join(lines)
 
 

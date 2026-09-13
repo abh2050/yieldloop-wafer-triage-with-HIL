@@ -8,8 +8,10 @@ partitioning is lot-keyed, from lots it has never seen either.
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -43,6 +45,23 @@ logger = get_logger(__name__)
 
 LABELS = [cls.value for cls in CLASS_ORDER]
 
+#: Where scripts/run_label_efficiency.py writes its result. The curve needs many
+#: training runs, so it is produced by a separate deliberate experiment rather
+#: than recomputed on every harness invocation, and read back here.
+LABEL_EFFICIENCY_PATH = Path(__file__).resolve().parents[1] / "label_efficiency.json"
+
+
+def load_label_efficiency(path: Path = LABEL_EFFICIENCY_PATH) -> dict[str, Any] | None:
+    """Read the label efficiency experiment, or None if it has not been run.
+
+    Absent is reported as absent. Recomputing a cheap approximation here would
+    put a number on the page that was not measured the way the curve claims.
+    """
+    if not path.is_file():
+        return None
+    payload: dict[str, Any] = json.loads(path.read_text())
+    return payload
+
 
 @dataclass(frozen=True, slots=True)
 class ClassifierSuiteResult:
@@ -59,6 +78,7 @@ class ClassifierSuiteResult:
     floor_sweep: list[dict[str, Any]]
     reliability: list[dict[str, Any]]
     escalation: dict[str, Any]
+    label_efficiency: dict[str, Any] | None
     rare_class_recall: dict[str, float]
     samples: int
     seconds: float
@@ -79,6 +99,7 @@ class ClassifierSuiteResult:
             "routing_curve": self.routing,
             "floor_sweep": self.floor_sweep,
             "escalation": self.escalation,
+            "label_efficiency": self.label_efficiency,
             "rare_class_recall": self.rare_class_recall,
             "samples": self.samples,
             "seconds": self.seconds,
@@ -161,6 +182,7 @@ def run(
             confidence_floor=settings.confidence_floor,
             auto_commit_threshold=settings.auto_commit_threshold,
         ).as_dict(),
+        label_efficiency=load_label_efficiency(),
         rare_class_recall={label: report.recall_for(label) or 0.0 for label in rare},
         samples=int(predicted.numel()),
         seconds=time.monotonic() - started,

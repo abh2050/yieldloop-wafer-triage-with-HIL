@@ -13,6 +13,7 @@ be meaningless.
 from __future__ import annotations
 
 import time
+import uuid
 from collections.abc import Iterator
 
 import pytest
@@ -20,11 +21,14 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from yieldloop.config import Settings
-from yieldloop.db.enums import SplitName, TaskGate
-from yieldloop.db.models import Wafer
+from yieldloop.db.enums import DecisionAction, DefectPattern, SplitName, TaskGate
+from yieldloop.db.models import AuditRecord, Decision, ReasonCode, ReviewTask, Wafer
 from yieldloop.db.session import build_engine
+from yieldloop.guardrails.input_filter import InputFilter
+from yieldloop.guardrails.thresholds import RoutingBands
 from yieldloop.models.embed import load_samples
-from yieldloop.review.queue import next_items, queue_depth
+from yieldloop.review.decisions import DecisionRequest, submit
+from yieldloop.review.queue import create_task, next_items, queue_depth
 
 pytestmark = [pytest.mark.performance, pytest.mark.timeout(180)]
 
@@ -35,6 +39,11 @@ DEPTH_BUDGET_SECONDS = 1.0
 #: A round scores a pool of this size; slower than this and rounds stop being
 #: something an operator runs interactively.
 LOAD_BUDGET_WAFERS_PER_SECOND = 2_000
+
+#: Submitting a decision must not be what a reviewer waits on. The product claim
+#: is a sub-four-second decision including the reviewer's own judgement, so the
+#: write has to be a small fraction of that.
+SUBMIT_BUDGET_SECONDS = 0.25
 
 MIN_VOLUME = 100_000
 
@@ -139,3 +148,131 @@ def test_connection_pool_is_bounded(live_session: Session) -> None:
     # A statement timeout bounds the tail; without it one runaway query stalls
     # the console, and the throughput claim is about the tail, not the mean.
     assert settings.db_statement_timeout_ms > 0
+
+
+# --- label submit latency -------------------------------------------------
+
+
+def test_label_submit_is_within_budget(live_session: Session) -> None:
+    """The write on the critical path of every decision.
+
+    Measured against the real wafer table, because the decision insert carries
+    foreign keys into it and an unindexed lookup would only show at volume. The
+    task is created and the decision submitted through the real service, then
+    rolled back, so the developer's database is left as it was found.
+    """
+    settings = Settings()
+    bands = RoutingBands.from_settings(settings)
+    input_filter = InputFilter.from_settings(settings)
+
+    wafer = live_session.execute(select(Wafer).limit(1)).scalar_one_or_none()
+    if wafer is None:
+        pytest.skip("no wafers ingested")
+
+    codes = live_session.execute(select(func.count()).select_from(ReasonCode)).scalar_one()
+    if int(codes) == 0:
+        pytest.skip("reason codes are not seeded; run alembic upgrade head")
+
+    timings: list[float] = []
+    created: list[uuid.UUID] = []
+    try:
+        for index in range(5):
+            task = create_task(
+                live_session,
+                wafer=wafer,
+                gate=TaskGate.LABEL,
+                prediction=None,
+                bands=bands,
+                priority=float(index),
+            )
+            created.append(task.id)
+            live_session.commit()
+
+            started = time.perf_counter()
+            submit(
+                live_session,
+                DecisionRequest(
+                    task_id=task.id,
+                    reviewer_id="perf-harness",
+                    action=DecisionAction.ACCEPT,
+                    chosen_label=DefectPattern.NONE,
+                    reason_code=None,
+                    note=None,
+                    decision_ms=1200,
+                ),
+                input_filter=input_filter,
+                request_id=f"perf-{uuid.uuid4().hex}",
+            )
+            live_session.commit()
+            timings.append(time.perf_counter() - started)
+    finally:
+        for task_id in created:
+            decision = live_session.execute(
+                select(Decision).where(Decision.task_id == task_id)
+            ).scalar_one_or_none()
+            if decision is not None:
+                live_session.delete(decision)
+            task_row = live_session.get(ReviewTask, task_id)
+            if task_row is not None:
+                live_session.delete(task_row)
+        live_session.commit()
+
+    median = sorted(timings)[len(timings) // 2]
+    assert median < SUBMIT_BUDGET_SECONDS, (
+        f"label submit took {median:.3f}s, over the {SUBMIT_BUDGET_SECONDS}s budget"
+    )
+
+
+def test_submitting_a_decision_also_writes_its_audit_record(
+    live_session: Session,
+) -> None:
+    """The audit write is inside the measured path, not deferred.
+
+    Deferring it would make the latency figure flattering and leave a window
+    where a decision exists with no record of it.
+    """
+    settings = Settings()
+    wafer = live_session.execute(select(Wafer).limit(1)).scalar_one_or_none()
+    if wafer is None:
+        pytest.skip("no wafers ingested")
+
+    before = int(live_session.execute(select(func.count()).select_from(AuditRecord)).scalar_one())
+    task = create_task(
+        live_session,
+        wafer=wafer,
+        gate=TaskGate.LABEL,
+        prediction=None,
+        bands=RoutingBands.from_settings(settings),
+        priority=1.0,
+    )
+    live_session.commit()
+    try:
+        submit(
+            live_session,
+            DecisionRequest(
+                task_id=task.id,
+                reviewer_id="perf-harness",
+                action=DecisionAction.ACCEPT,
+                chosen_label=DefectPattern.NONE,
+                reason_code=None,
+                note=None,
+                decision_ms=900,
+            ),
+            input_filter=InputFilter.from_settings(settings),
+            request_id=f"perf-{uuid.uuid4().hex}",
+        )
+        live_session.commit()
+        after = int(
+            live_session.execute(select(func.count()).select_from(AuditRecord)).scalar_one()
+        )
+        assert after == before + 1
+    finally:
+        decision = live_session.execute(
+            select(Decision).where(Decision.task_id == task.id)
+        ).scalar_one_or_none()
+        if decision is not None:
+            live_session.delete(decision)
+        task_row = live_session.get(ReviewTask, task.id)
+        if task_row is not None:
+            live_session.delete(task_row)
+        live_session.commit()
