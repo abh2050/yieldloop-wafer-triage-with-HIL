@@ -4,7 +4,7 @@ All metrics are computed from the real WM811K dataset and from decisions real
 reviewers made in this console. There is no synthetic ground truth anywhere in 
 this report.
 
-**Gate: PASS** · 5.9s
+**Gate: PASS** · 22.0s
 
 ## Classifier
 
@@ -93,6 +93,31 @@ them, which is the column a fab actually cares about.
 | Blind review share | 13.61% of human work has the prediction withheld |
 | Escaped error rate | 0.44% |
 
+
+## Root cause agent
+
+Grounding rate is the fraction of proposed hypotheses whose citations all 
+resolved to evidence in the context bundle. A rate below 100% does not mean a 
+reviewer saw something wrong -- the gate dropped those claims -- it means the 
+model attempted a fabrication.
+
+Abstention rate is **not** minimized. Abstaining on a thin bundle is correct; a 
+rate of zero against sparse evidence would mean the model is inventing support.
+
+| Metric | Value |
+| --- | --- |
+| Calls | 8 |
+| Hypotheses proposed | 2 |
+| Hypotheses grounded | 2 |
+| Grounding rate | 100.00% |
+| Abstention rate | 87.50% |
+| Fabricated citations | 0 |
+| Median latency | 1554 ms |
+| p95 latency | 4156 ms |
+| Cost | $0.0521 |
+
+
+> No reviewer resolutions exist for the evaluated lots, so hypothesis precision cannot be measured. This is a data gap, not a score of zero.
 
 ## Guardrails
 

@@ -59,7 +59,13 @@ export function LabelGrid() {
       if (!current || submitting) return;
       const began = performance.now();
       try {
-        await submit({ taskId: current.task_id, action: "edit", label: pattern, reasonCode: "wrong_class" });
+        // `accept` with an explicit label, not `edit`. At this gate the reviewer
+        // cannot see a prediction, so they are not correcting one -- they are
+        // supplying an independent label, and no reason code applies. The server
+        // still computes is_override by comparing against the hidden prediction,
+        // which is what produces the blind override rate the anchoring measure
+        // is built from.
+        await submit({ taskId: current.task_id, action: "accept", label: pattern });
         setLastDecisionMs(Math.round(performance.now() - began));
         setDecided((n) => n + 1);
         remove(current.task_id);

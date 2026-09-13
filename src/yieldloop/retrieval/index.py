@@ -129,6 +129,35 @@ def save_index(index: faiss.Index, manifest: IndexManifest, path: Path) -> None:
     logger.info("index_saved", path=str(path), vectors=len(manifest.identifiers))
 
 
+def materialize(index: faiss.Index) -> Embeddings:
+    """Read every vector out of the index as a contiguous matrix.
+
+    The search itself runs in numpy over this matrix rather than through
+    ``faiss.Index.search``. The results are identical -- ``IndexFlatIP`` is
+    exhaustive exact inner-product search, which is exactly what a matrix product
+    computes -- and it avoids a hard process abort.
+
+    faiss and torch each ship their own OpenMP runtime. Whichever initializes
+    second aborts the process with "Initializing libomp.dylib, but found
+    libomp.dylib already initialized", and ``search`` is the only faiss call that
+    spawns OpenMP threads: ``add``, ``write_index``, ``read_index`` and
+    ``reconstruct`` all coexist with torch. Since this system runs the classifier
+    and retrieval in one process -- the API, the eval harness and the seeding
+    script all do -- that abort is not avoidable by ordering imports. The
+    documented alternative, ``KMP_DUPLICATE_LIB_OK=TRUE``, is rejected: its own
+    warning says it "may cause crashes or silently produce incorrect results",
+    which is not an acceptable foundation for a system whose output is a
+    calibrated number a fab acts on.
+
+    At this corpus size the matrix product is also simply faster than the call
+    overhead it replaces.
+    """
+    if index.ntotal == 0:
+        return np.zeros((0, index.d), dtype=np.float32)
+    vectors = index.reconstruct_n(0, index.ntotal)
+    return np.ascontiguousarray(np.asarray(vectors, dtype=np.float32))
+
+
 def load_index(path: Path) -> tuple[faiss.Index, IndexManifest]:
     """Load an index and verify it agrees with its manifest."""
     if not path.is_file():

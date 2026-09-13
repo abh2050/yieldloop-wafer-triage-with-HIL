@@ -44,19 +44,27 @@ test("wafer maps render from real arrays on canvas", async ({ page }) => {
   const canvas = page.getByTestId("wafer-map").first();
   await expect(canvas).toBeVisible();
 
-  // The canvas must contain actual die, not be a blank placeholder.
-  const distinctColours = await canvas.evaluate((element) => {
-    const source = element as HTMLCanvasElement;
-    const context = source.getContext("2d");
-    if (!context) return 0;
-    const { data } = context.getImageData(0, 0, source.width, source.height);
-    const seen = new Set<string>();
-    for (let i = 0; i < data.length; i += 4) {
-      seen.add(`${data[i]},${data[i + 1]},${data[i + 2]}`);
-    }
-    return seen.size;
-  });
-  expect(distinctColours).toBeGreaterThan(1);
+  // Polled rather than read once: grids are fetched after the queue renders, so
+  // a single read can land on the blank placeholder and fail intermittently.
+  // The assertion is unchanged -- the canvas must contain actual die -- it just
+  // waits for the fetch the component is waiting on too.
+  await expect
+    .poll(
+      async () =>
+        canvas.evaluate((element) => {
+          const source = element as HTMLCanvasElement;
+          const context = source.getContext("2d");
+          if (!context) return 0;
+          const { data } = context.getImageData(0, 0, source.width, source.height);
+          const seen = new Set<string>();
+          for (let i = 0; i < data.length; i += 4) {
+            seen.add(`${data[i]},${data[i + 1]},${data[i + 2]}`);
+          }
+          return seen.size;
+        }),
+      { timeout: 10_000, message: "wafer map never rendered more than one colour" },
+    )
+    .toBeGreaterThan(1);
 });
 
 test("keyboard shortcuts are visible without opening help", async ({ page }) => {

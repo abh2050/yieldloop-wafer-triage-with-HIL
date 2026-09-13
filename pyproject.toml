@@ -90,5 +90,6 @@ markers = [
     "openai: calls the live OpenAI API with a bounded token budget; skipped when OPENAI_API_KEY is absent",
     "dataset: requires the real WM811K archive present on local disk",
     "performance: asserts latency budgets against real data volume",
+    "integration: exercises several layers against real infrastructure",
 ]
 filterwarnings = ["error::DeprecationWarning:yieldloop.*"]

@@ -14,7 +14,7 @@ import faiss
 import numpy as np
 import numpy.typing as npt
 
-from yieldloop.retrieval.index import IndexManifest, normalize
+from yieldloop.retrieval.index import IndexManifest, materialize, normalize
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,19 +51,29 @@ def search(
     """
     if top_k < 1:
         raise ValueError(f"top_k must be positive; got {top_k}")
-    if index.ntotal == 0:
+
+    vectors = materialize(index)
+    if vectors.shape[0] == 0:
         return []
 
     vector = normalize(np.asarray(query, dtype=np.float32).reshape(1, -1))
     if vector.shape[1] != manifest.dimension:
         raise ValueError(f"query is {vector.shape[1]}-D but the index is {manifest.dimension}-D")
 
+    # Exact inner-product search as a matrix product. Identical to what
+    # IndexFlatIP computes; see materialize() for why it is not delegated.
+    all_similarities = (vectors @ vector.T).ravel()
+
     # Over-fetch so that exclusions cannot starve the result below top_k.
-    fetch = min(index.ntotal, top_k + len(exclude) + 1)
-    similarities, positions = index.search(vector, fetch)
+    fetch = min(vectors.shape[0], top_k + len(exclude) + 1)
+    # argpartition then sort only the candidates: the ordering matters among the
+    # ones that can be returned, not across the whole corpus.
+    candidates = np.argpartition(-all_similarities, fetch - 1)[:fetch]
+    positions = candidates[np.argsort(-all_similarities[candidates])]
+    similarities = all_similarities[positions]
 
     hits: list[Hit] = []
-    for similarity, position in zip(similarities[0], positions[0], strict=True):
+    for similarity, position in zip(similarities, positions, strict=True):
         if position < 0:
             continue
         identifier = manifest.identifiers[int(position)]
