@@ -126,8 +126,7 @@ def openai_api_key() -> str:
     key = Settings().openai_api_key.get_secret_value().strip()
     if not key:
         pytest.skip(
-            "OPENAI_API_KEY is not set in the environment or .env; "
-            "live contract tests cannot run"
+            "OPENAI_API_KEY is not set in the environment or .env; live contract tests cannot run"
         )
     return key
 
