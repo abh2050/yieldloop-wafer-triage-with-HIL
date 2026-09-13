@@ -56,9 +56,11 @@ docker compose up -d postgres
 docker compose run --rm migrate
 
 # Kaggle credentials required: ~/.kaggle/kaggle.json
-python scripts/fetch_dataset.py
-python scripts/bootstrap_db.py
+python scripts/fetch_dataset.py       # needs ~/.kaggle/kaggle.json
+python scripts/bootstrap_db.py        # 46,293 lots / 811,457 wafers
+python -m scripts.train               # trains, calibrates, registers
 python scripts/seed_from_real_labels.py
+python scripts/run_active_round.py    # fills the review queue
 
 docker compose up api frontend
 ```

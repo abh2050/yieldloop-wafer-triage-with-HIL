@@ -12,7 +12,7 @@ docker compose run --rm migrate
 python scripts/fetch_dataset.py
 
 python scripts/bootstrap_db.py               # ~46,293 lots / 811,457 wafers
-python -m scripts.train                      # or see "Training" below
+python -m scripts.train                      # see "Training" below
 python scripts/seed_from_real_labels.py      # retrieval corpus + FAISS index
 python scripts/run_active_round.py           # fill the review queue
 
@@ -120,6 +120,17 @@ loss.
 Artifacts are content-addressed under `YIELDLOOP_REGISTRY_DIR`; exactly one per
 kind is active, and "the current model" is a property of the database rather than
 of whichever file a script loaded.
+
+## Exporting the case study
+
+```bash
+python -m eval.harness --report eval_report.md
+python -m scripts.export_case_study --skip-agent --output case_study.md
+```
+
+`--skip-agent` omits the suite that spends tokens. Both read only what the system
+recorded; neither estimates anything, and both say so where a number is
+unavailable.
 
 ## Backups
 
