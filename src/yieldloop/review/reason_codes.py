@@ -95,9 +95,7 @@ REASON_CODES: tuple[ReasonCodeSpec, ...] = (
     ReasonCodeSpec(
         code="hypothesis_unsupported",
         label="Evidence does not support it",
-        description=(
-            "The cited evidence is real but does not support the claim made from it."
-        ),
+        description=("The cited evidence is real but does not support the claim made from it."),
         applies_to=_EDIT_OR_REJECT,
         applies_to_gates=(TaskGate.ESCALATION,),
         sort_order=70,

@@ -78,9 +78,7 @@ def _validate(logits: Tensor, labels: Tensor) -> None:
     if labels.dim() != 1:
         raise CalibrationError(f"labels must be (n,); got {tuple(labels.shape)}")
     if logits.shape[0] != labels.shape[0]:
-        raise CalibrationError(
-            f"{logits.shape[0]} logit rows against {labels.shape[0]} labels"
-        )
+        raise CalibrationError(f"{logits.shape[0]} logit rows against {labels.shape[0]} labels")
     if logits.shape[0] == 0:
         raise CalibrationError("cannot calibrate on an empty validation set")
     if int(labels.max()) >= logits.shape[1] or int(labels.min()) < 0:

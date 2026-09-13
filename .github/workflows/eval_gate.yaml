@@ -1,0 +1,68 @@
+name: eval-gate
+
+on:
+  pull_request:
+  schedule:
+    # Nightly, so drift in live model behaviour surfaces as a failed run rather
+    # than as a production surprise.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: yieldloop
+          POSTGRES_PASSWORD: yieldloop
+          POSTGRES_DB: yieldloop
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U yieldloop -d yieldloop"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      YIELDLOOP_DATABASE_URL: postgresql+psycopg://yieldloop:yieldloop@localhost:5432/yieldloop
+      # Present only on the nightly run. Suites that need it skip rather than
+      # being satisfied by a stub.
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv venv --python 3.12 .venv
+      - run: uv pip install --python .venv/bin/python -e ".[dev]"
+
+      - run: .venv/bin/alembic -c src/yieldloop/db/migrations/alembic.ini upgrade head
+
+      # Fails the build when any metric regresses past the committed floor in
+      # eval/baselines.json.
+      - name: Evaluation gate
+        run: .venv/bin/python -m eval.harness --report eval_report.md --json eval_report.json
+
+      - name: Publish the report as a job summary
+        if: always()
+        run: cat eval_report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-report
+          path: |
+            eval_report.md
+            eval_report.json
+
+  nightly-contracts:
+    # Live OpenAI contract tests. Scheduled rather than per-PR so drift in model
+    # behaviour is caught without spending on every push.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv venv --python 3.12 .venv
+      - run: uv pip install --python .venv/bin/python -e ".[dev]"
+      - name: Live API contract tests
+        run: .venv/bin/pytest -q -m openai

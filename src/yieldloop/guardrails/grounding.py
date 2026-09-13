@@ -80,9 +80,7 @@ def enforce(response: HypothesisResponse, bundle: ContextBundle) -> GroundingRes
     produce anyway.
     """
     if response.abstained:
-        return GroundingResult(
-            response=response, dropped=(), returned_count=0, grounded_count=0
-        )
+        return GroundingResult(response=response, dropped=(), returned_count=0, grounded_count=0)
 
     returned = len(response.hypotheses)
 
@@ -151,9 +149,7 @@ def enforce(response: HypothesisResponse, bundle: ContextBundle) -> GroundingRes
     # densely, preserving the model's relative ordering.
     regraded = tuple(
         hypothesis.model_copy(update={"rank": position})
-        for position, hypothesis in enumerate(
-            sorted(survivors, key=lambda h: h.rank), start=1
-        )
+        for position, hypothesis in enumerate(sorted(survivors, key=lambda h: h.rank), start=1)
     )
 
     return GroundingResult(

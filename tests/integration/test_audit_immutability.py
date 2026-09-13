@@ -110,14 +110,18 @@ def test_update_and_delete_grants_are_revoked(db_session: Session) -> None:
     Checked independently of the trigger, so that removing one mechanism cannot
     quietly leave the other carrying the whole guarantee.
     """
-    granted = db_session.execute(
-        text(
-            """
+    granted = (
+        db_session.execute(
+            text(
+                """
             SELECT privilege_type FROM information_schema.role_table_grants
             WHERE table_name = 'audit_records' AND grantee = CURRENT_USER
             """
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert "INSERT" in granted
     assert "SELECT" in granted
     assert "UPDATE" not in granted

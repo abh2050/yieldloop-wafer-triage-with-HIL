@@ -107,16 +107,12 @@ def _validate_request(request: SelectionRequest) -> None:
     if request.batch_size < 0:
         raise SchedulingError(f"batch_size must be non-negative; got {request.batch_size}")
     if not 0.0 <= request.diversity_weight <= 1.0:
-        raise SchedulingError(
-            f"diversity_weight must be in [0, 1]; got {request.diversity_weight}"
-        )
+        raise SchedulingError(f"diversity_weight must be in [0, 1]; got {request.diversity_weight}")
     if request.min_distance < 0.0:
         raise SchedulingError(f"min_distance must be non-negative; got {request.min_distance}")
 
 
-def _uncertainty_scores(
-    strategy: SamplingStrategy, probabilities: Probabilities
-) -> Scores:
+def _uncertainty_scores(strategy: SamplingStrategy, probabilities: Probabilities) -> Scores:
     """Score in ``[0, 1]``, higher meaning more informative."""
     match strategy:
         case SamplingStrategy.ENTROPY | SamplingStrategy.ENTROPY_DIVERSITY:

@@ -40,9 +40,7 @@ SENSITIVE_KEYS: Final[frozenset[str]] = frozenset(
 )
 
 
-def redact_sensitive(
-    _logger: WrappedLogger, _method_name: str, event_dict: EventDict
-) -> EventDict:
+def redact_sensitive(_logger: WrappedLogger, _method_name: str, event_dict: EventDict) -> EventDict:
     """Replace free-text and secret values with :data:`REDACTED`."""
     for key in list(event_dict):
         if key.lower() in SENSITIVE_KEYS and event_dict[key] is not None:

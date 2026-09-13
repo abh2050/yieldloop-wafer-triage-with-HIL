@@ -29,9 +29,7 @@ from typing import Final
 #: Zero-width and bidirectional control characters. These carry no meaning in
 #: engineering prose and are a standard way to hide instruction text from a
 #: human reviewer while leaving it visible to the model.
-_INVISIBLE_CHARS: Final[re.Pattern[str]] = re.compile(
-    r"[­​-‏‪-‮⁠-⁤⁦-⁩﻿]"
-)
+_INVISIBLE_CHARS: Final[re.Pattern[str]] = re.compile(r"[­​-‏‪-‮⁠-⁤⁦-⁩﻿]")
 
 #: Patterns that indicate an attempt to address the model rather than describe a
 #: wafer. Deliberately conservative: these raise a flag and an audit record, they

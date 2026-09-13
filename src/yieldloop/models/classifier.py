@@ -165,11 +165,7 @@ class ClassCounts:
             return torch.ones(NUM_CLASSES, device=device)
 
         weights = torch.ones(NUM_CLASSES, dtype=torch.float32, device=device)
-        present = [
-            index
-            for index, cls in enumerate(CLASS_ORDER)
-            if self.counts.get(cls, 0) > 0
-        ]
+        present = [index for index, cls in enumerate(CLASS_ORDER) if self.counts.get(cls, 0) > 0]
         if not present:
             return weights
 

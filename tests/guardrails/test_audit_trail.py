@@ -8,6 +8,8 @@ something that bypasses the application entirely.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -28,9 +30,7 @@ def audit(db_session: Session) -> AuditLog:
     return AuditLog(db_session)
 
 
-def test_every_required_event_category_is_writable(
-    audit: AuditLog, db_session: Session
-) -> None:
+def test_every_required_event_category_is_writable(audit: AuditLog, db_session: Session) -> None:
     """All four categories the design requires must be recordable."""
     audit.record_model_output(
         actor="agent", request_id="r1", subject_id="hr-1", payload={"abstained": False}
@@ -56,9 +56,7 @@ def test_every_required_event_category_is_writable(
     )
     db_session.flush()
 
-    recorded = set(
-        db_session.execute(select(AuditRecord.event_type)).scalars().all()
-    )
+    recorded = set(db_session.execute(select(AuditRecord.event_type)).scalars().all())
     assert recorded == set(AuditEventType)
 
 
@@ -143,9 +141,7 @@ def test_chain_detects_a_payload_altered_outside_the_application(
     assert tampered_sequence in verification.broken_at
 
 
-def test_guardrail_action_is_written_to_both_places(
-    audit: AuditLog, db_session: Session
-) -> None:
+def test_guardrail_action_is_written_to_both_places(audit: AuditLog, db_session: Session) -> None:
     """The dedicated table drives dashboards; the audit record makes it
     non-repudiable. Losing either would leave a gap."""
     action, record = audit.record_guardrail_action(
@@ -166,28 +162,13 @@ def test_guardrail_action_is_written_to_both_places(
     assert record.payload["reason"] == "instruction_shaped_content"
 
 
-def test_digest_is_independent_of_key_ordering() -> None:
-    """Two semantically identical payloads must hash identically."""
-    common = {
-        "prev_digest": GENESIS_DIGEST,
-        "event_type": AuditEventType.MODEL_OUTPUT,
-        "actor": "agent",
-        "subject_type": "hypothesis_request",
-        "subject_id": "hr-1",
-        "request_id": "r1",
-    }
-    assert compute_digest(**common, payload={"a": 1, "b": 2}) == compute_digest(  # type: ignore[arg-type]
-        **common, payload={"b": 2, "a": 1}  # type: ignore[arg-type]
-    )
+def _digest_with(**overrides: object) -> str:
+    """Compute a digest over a fixed baseline, with named fields overridden.
 
-
-@pytest.mark.parametrize(
-    "field",
-    ["actor", "subject_type", "subject_id", "request_id"],
-)
-def test_every_meaningful_field_is_covered_by_the_digest(field: str) -> None:
-    """A field left out of the digest could be altered without breaking the chain."""
-    base: dict[str, object] = {
+    A typed helper rather than splatting an untyped dict, so mypy actually checks
+    these call sites instead of being told to ignore them.
+    """
+    fields: dict[str, Any] = {
         "prev_digest": GENESIS_DIGEST,
         "event_type": AuditEventType.MODEL_OUTPUT,
         "actor": "agent",
@@ -195,20 +176,34 @@ def test_every_meaningful_field_is_covered_by_the_digest(field: str) -> None:
         "subject_id": "hr-1",
         "request_id": "r1",
         "payload": {"n": 1},
+        **overrides,
     }
-    altered = {**base, field: "tampered"}
-    assert compute_digest(**base) != compute_digest(**altered)  # type: ignore[arg-type]
+    return compute_digest(
+        prev_digest=fields["prev_digest"],
+        event_type=fields["event_type"],
+        actor=fields["actor"],
+        subject_type=fields["subject_type"],
+        subject_id=fields["subject_id"],
+        request_id=fields["request_id"],
+        payload=fields["payload"],
+    )
+
+
+def test_digest_is_independent_of_key_ordering() -> None:
+    """Two semantically identical payloads must hash identically."""
+    assert _digest_with(payload={"a": 1, "b": 2}) == _digest_with(payload={"b": 2, "a": 1})
+
+
+@pytest.mark.parametrize("field", ["actor", "subject_type", "subject_id", "request_id"])
+def test_every_meaningful_field_is_covered_by_the_digest(field: str) -> None:
+    """A field left out of the digest could be altered without breaking the chain."""
+    assert _digest_with() != _digest_with(**{field: "tampered"})
 
 
 def test_payload_change_breaks_the_digest() -> None:
-    base: dict[str, object] = {
-        "prev_digest": GENESIS_DIGEST,
-        "event_type": AuditEventType.MODEL_OUTPUT,
-        "actor": "agent",
-        "subject_type": "hypothesis_request",
-        "subject_id": "hr-1",
-        "request_id": "r1",
-    }
-    assert compute_digest(**base, payload={"n": 1}) != compute_digest(  # type: ignore[arg-type]
-        **base, payload={"n": 2}  # type: ignore[arg-type]
-    )
+    assert _digest_with(payload={"n": 1}) != _digest_with(payload={"n": 2})
+
+
+def test_prev_digest_is_covered_by_the_digest() -> None:
+    """The chain link itself must be hashed, or records could be re-ordered."""
+    assert _digest_with() != _digest_with(prev_digest="f" * 64)

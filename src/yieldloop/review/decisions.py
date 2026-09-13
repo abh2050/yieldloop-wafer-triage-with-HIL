@@ -76,9 +76,7 @@ def submit(
 
     task = session.get(ReviewTask, request.task_id)
     if task is None:
-        raise DecisionError(
-            f"no review task {request.task_id}", detail={"code": "unknown_task"}
-        )
+        raise DecisionError(f"no review task {request.task_id}", detail={"code": "unknown_task"})
     if task.state is TaskState.COMPLETED:
         raise DecisionError(
             f"task {request.task_id} already has a decision",
@@ -100,9 +98,7 @@ def submit(
         )
 
     prediction = (
-        session.get(Prediction, task.prediction_id)
-        if task.prediction_id is not None
-        else None
+        session.get(Prediction, task.prediction_id) if task.prediction_id is not None else None
     )
 
     # An accept at a gate that showed a prediction means the reviewer agreed with
@@ -120,9 +116,7 @@ def submit(
             )
 
     model_label = prediction.predicted_label if prediction is not None else None
-    is_override = bool(
-        model_label is not None and chosen is not None and chosen != model_label
-    )
+    is_override = bool(model_label is not None and chosen is not None and chosen != model_label)
 
     decision = Decision(
         task_id=task.id,
@@ -182,7 +176,7 @@ def override_rate(session: Session, *, shown_only: bool = False) -> float:
 
 def training_labels(session: Session) -> list[tuple[str, DefectPattern]]:
     """Reviewer-produced labels, in the form the next training round consumes."""
-    rows = session.execute(
-        select(Decision).where(Decision.chosen_label.is_not(None))
-    ).scalars().all()
+    rows = (
+        session.execute(select(Decision).where(Decision.chosen_label.is_not(None))).scalars().all()
+    )
     return [(str(row.wafer_id), row.chosen_label) for row in rows if row.chosen_label]

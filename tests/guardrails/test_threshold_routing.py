@@ -37,9 +37,7 @@ probabilities = st.floats(
         (0.00, RoutingBand.BELOW_FLOOR),
     ],
 )
-def test_band_boundaries_are_inclusive_from_below(
-    confidence: float, expected: RoutingBand
-) -> None:
+def test_band_boundaries_are_inclusive_from_below(confidence: float, expected: RoutingBand) -> None:
     assert classify(confidence, BANDS).band is expected
 
 

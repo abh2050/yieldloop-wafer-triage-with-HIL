@@ -130,9 +130,7 @@ def test_session_cap_refuses_the_call_that_would_breach_it(
     assert float(exc.value.detail["spent_usd"]) == pytest.approx(0.975)  # type: ignore[arg-type]
 
 
-def test_landing_exactly_on_the_cap_is_permitted(
-    guard: BudgetGuard, db_session: Session
-) -> None:
+def test_landing_exactly_on_the_cap_is_permitted(guard: BudgetGuard, db_session: Session) -> None:
     """The cap is a ceiling that may be reached, not one that may be approached.
 
     $0.95 already spent plus a $0.05 call is exactly the $1.00 session cap, and
@@ -166,9 +164,7 @@ def test_landing_exactly_on_the_cap_is_permitted(
         )
 
 
-def test_spend_just_under_the_cap_is_allowed(
-    guard: BudgetGuard, db_session: Session
-) -> None:
+def test_spend_just_under_the_cap_is_allowed(guard: BudgetGuard, db_session: Session) -> None:
     guard.record(
         session_id=SESSION,
         request_id="req-small",
@@ -248,9 +244,7 @@ def test_estimate_uses_the_maximum_completion_not_an_expectation(
     assert estimated == pytest.approx(PRICING.cost(12_000, 2_000))
 
 
-def test_a_retried_write_cannot_double_count(
-    guard: BudgetGuard, db_session: Session
-) -> None:
+def test_a_retried_write_cannot_double_count(guard: BudgetGuard, db_session: Session) -> None:
     guard.record(
         session_id=SESSION,
         request_id="req-idempotent",

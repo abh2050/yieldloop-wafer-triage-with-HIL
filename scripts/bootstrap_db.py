@@ -92,9 +92,7 @@ def bootstrap(session: Session, settings: Settings, *, max_lots: int | None) -> 
 
     keep_lots: frozenset[str] | None = None
     if max_lots is not None and max_lots < len(lot_names):
-        keep_lots = frozenset(
-            name for name, ordinal in ordinals.items() if ordinal < max_lots
-        )
+        keep_lots = frozenset(name for name, ordinal in ordinals.items() if ordinal < max_lots)
         lot_names = sorted(keep_lots, key=lambda n: ordinals[n])
 
     wafer_counts = frame["lotName"].value_counts()

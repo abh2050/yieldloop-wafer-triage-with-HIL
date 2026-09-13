@@ -226,8 +226,14 @@ class HypothesisService:
                 max_completion_tokens=self._settings.max_completion_tokens,
             )
         except AgentTransportError as exc:
-            self._record_outcome(schema_ok=False, latency=0.0, rejection_rate=0.0, moment=moment,
-                                 requested_by=requested_by, request_id=request_id)
+            self._record_outcome(
+                schema_ok=False,
+                latency=0.0,
+                rejection_rate=0.0,
+                moment=moment,
+                requested_by=requested_by,
+                request_id=request_id,
+            )
             return self._refuse(
                 bundle=bundle,
                 request_id=request_id,
@@ -249,9 +255,7 @@ class HypothesisService:
             prompt_tokens=completion.prompt_tokens,
             completion_tokens=completion.completion_tokens,
         )
-        cost = self._budget.pricing.cost(
-            completion.prompt_tokens, completion.completion_tokens
-        )
+        cost = self._budget.pricing.cost(completion.prompt_tokens, completion.completion_tokens)
 
         # 8. Strict parse. Fails closed.
         try:

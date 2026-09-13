@@ -56,9 +56,7 @@ def search(
 
     vector = normalize(np.asarray(query, dtype=np.float32).reshape(1, -1))
     if vector.shape[1] != manifest.dimension:
-        raise ValueError(
-            f"query is {vector.shape[1]}-D but the index is {manifest.dimension}-D"
-        )
+        raise ValueError(f"query is {vector.shape[1]}-D but the index is {manifest.dimension}-D")
 
     # Over-fetch so that exclusions cannot starve the result below top_k.
     fetch = min(index.ntotal, top_k + len(exclude) + 1)
@@ -73,9 +71,7 @@ def search(
             continue
         if float(similarity) < min_similarity:
             continue
-        hits.append(
-            Hit(identifier=identifier, similarity=float(similarity), rank=len(hits) + 1)
-        )
+        hits.append(Hit(identifier=identifier, similarity=float(similarity), rank=len(hits) + 1))
         if len(hits) >= top_k:
             break
     return hits
@@ -92,14 +88,11 @@ def search_many(
     """Batch search. Returns one hit list per query row."""
     array = normalize(queries)
     return [
-        search(index, manifest, row, top_k=top_k, min_similarity=min_similarity)
-        for row in array
+        search(index, manifest, row, top_k=top_k, min_similarity=min_similarity) for row in array
     ]
 
 
-def recall_at_k(
-    retrieved: list[list[Hit]], relevant: list[frozenset[str]], k: int
-) -> float:
+def recall_at_k(retrieved: list[list[Hit]], relevant: list[frozenset[str]], k: int) -> float:
     """Fraction of queries whose top-k contains at least one relevant item.
 
     Reported by the eval harness: if retrieval recall is poor, the agent's
@@ -108,9 +101,7 @@ def recall_at_k(
     if not retrieved:
         return 0.0
     if len(retrieved) != len(relevant):
-        raise ValueError(
-            f"{len(retrieved)} result lists against {len(relevant)} relevance sets"
-        )
+        raise ValueError(f"{len(retrieved)} result lists against {len(relevant)} relevance sets")
     found = sum(
         1
         for hits, targets in zip(retrieved, relevant, strict=True)

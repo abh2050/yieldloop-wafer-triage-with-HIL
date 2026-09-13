@@ -96,9 +96,7 @@ def list_guardrail_actions(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     stage: Annotated[GuardrailStage | None, Query()] = None,
 ) -> list[GuardrailActionResponse]:
-    statement = (
-        select(GuardrailAction).order_by(desc(GuardrailAction.created_at)).limit(limit)
-    )
+    statement = select(GuardrailAction).order_by(desc(GuardrailAction.created_at)).limit(limit)
     if stage is not None:
         statement = statement.where(GuardrailAction.stage == stage)
     return [

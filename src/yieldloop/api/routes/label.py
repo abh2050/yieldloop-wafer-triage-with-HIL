@@ -111,8 +111,7 @@ def get_reason_codes(
 ) -> list[ReasonCodeResponse]:
     specs = codes_for(gate, action) or list(REASON_CODES)
     return [
-        ReasonCodeResponse(code=s.code, label=s.label, description=s.description)
-        for s in specs
+        ReasonCodeResponse(code=s.code, label=s.label, description=s.description) for s in specs
     ]
 
 
@@ -123,9 +122,7 @@ def get_wafer_grid(wafer_id: str, session: SessionDep) -> list[int]:
     Served as the real array rather than a rendered image so the console draws it
     on canvas from the same bytes the classifier consumed.
     """
-    wafer = session.execute(
-        select(Wafer).where(Wafer.wafer_id == wafer_id)
-    ).scalar_one_or_none()
+    wafer = session.execute(select(Wafer).where(Wafer.wafer_id == wafer_id)).scalar_one_or_none()
     if wafer is None:
         raise HTTPException(status_code=404, detail=f"no wafer {wafer_id}")
     return list(wafer.grid)

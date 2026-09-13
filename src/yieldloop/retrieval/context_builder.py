@@ -190,9 +190,7 @@ def _retrieve_similar(
     results: list[SimilarLotEvidence] = []
     for hit in hits:
         excursion = session.execute(
-            select(HistoricalExcursion).where(
-                HistoricalExcursion.evidence_id == hit.identifier
-            )
+            select(HistoricalExcursion).where(HistoricalExcursion.evidence_id == hit.identifier)
         ).scalar_one_or_none()
         if excursion is None:
             continue

@@ -270,9 +270,7 @@ class LotSummary:
         if not self.wafer_indices:
             return ()
         present = set(self.wafer_indices)
-        return tuple(
-            i for i in range(min(present), max(present) + 1) if i not in present
-        )
+        return tuple(i for i in range(min(present), max(present) + 1) if i not in present)
 
 
 @dataclass(frozen=True, slots=True)

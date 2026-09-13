@@ -1,0 +1,7 @@
+{
+  "tolerance": 0.02,
+  "note": "Committed metric floors. The eval gate fails a pull request when a metric regresses beyond the tolerance. Update deliberately, with the reason in the commit message.",
+  "metrics": {
+    "guardrail.passed": 1.0
+  }
+}

@@ -124,9 +124,7 @@ class ProcessEventEvidence(StrictModel):
     derivation_rule: str = Field(max_length=64)
 
 
-Evidence = (
-    ClassifierEvidence | DieStatisticsEvidence | SimilarLotEvidence | ProcessEventEvidence
-)
+Evidence = ClassifierEvidence | DieStatisticsEvidence | SimilarLotEvidence | ProcessEventEvidence
 
 
 class ContextBundle(StrictModel):
@@ -254,7 +252,11 @@ class HypothesisResponse(StrictModel):
 
     @classmethod
     def abstention(
-        cls, lot_id: str, reason: str, *, injection_suspected: bool = False,
+        cls,
+        lot_id: str,
+        reason: str,
+        *,
+        injection_suspected: bool = False,
         context_gaps: tuple[str, ...] = (),
     ) -> HypothesisResponse:
         """Build the explicit abstention object.

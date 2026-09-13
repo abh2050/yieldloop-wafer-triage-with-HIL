@@ -97,9 +97,7 @@ def validate_grid_shape(height: int, width: int, bounds: GridBounds) -> tuple[in
     return height, width
 
 
-def validate_retention_window(
-    lot_date: date, *, today: date, retention_days: int
-) -> date:
+def validate_retention_window(lot_date: date, *, today: date, retention_days: int) -> date:
     """Reject a lot outside the retention window.
 
     A lot older than the window has aged out, and one dated in the future is a
@@ -158,8 +156,7 @@ def validate_free_text(value: str | None, *, field: str, max_chars: int) -> str 
     offending = {
         char
         for char in normalized
-        if unicodedata.category(char) in {"Cc", "Cf", "Co", "Cs"}
-        and char not in _ALLOWED_CONTROL
+        if unicodedata.category(char) in {"Cc", "Cf", "Co", "Cs"} and char not in _ALLOWED_CONTROL
     }
     if offending:
         raise InputRejectedError(
@@ -197,6 +194,4 @@ class InputFilter:
         return validate_grid_shape(height, width, self.grid_bounds)
 
     def check_lot_date(self, lot_date: date, *, today: date) -> date:
-        return validate_retention_window(
-            lot_date, today=today, retention_days=self.retention_days
-        )
+        return validate_retention_window(lot_date, today=today, retention_days=self.retention_days)

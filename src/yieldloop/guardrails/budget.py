@@ -56,8 +56,7 @@ class Pricing:
                 f"completion={completion_tokens}"
             )
         return (
-            prompt_tokens * self.input_per_mtok_usd
-            + completion_tokens * self.output_per_mtok_usd
+            prompt_tokens * self.input_per_mtok_usd + completion_tokens * self.output_per_mtok_usd
         ) / _TOKENS_PER_MILLION
 
 

@@ -209,9 +209,7 @@ class ModelArtifact(Base, TimestampMixin):
         _pg_enum(ArtifactKind, "artifact_kind"), nullable=False
     )
     #: sha256 of the serialized artifact; the registry filename is this digest.
-    content_hash: Mapped[str] = mapped_column(
-        String(64), nullable=False, unique=True, index=True
-    )
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     #: sha256 over the ordered wafer ids and labels the artifact was fit on.
     data_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     git_commit: Mapped[str] = mapped_column(String(40), nullable=False)
@@ -273,9 +271,7 @@ class Prediction(Base, TimestampMixin):
     __table_args__ = (
         CheckConstraint("confidence >= 0.0 AND confidence <= 1.0", name="ck_pred_conf_range"),
         CheckConstraint("entropy >= 0.0", name="ck_pred_entropy_nonneg"),
-        CheckConstraint(
-            "confidence_floor < auto_commit_threshold", name="ck_pred_bands_ordered"
-        ),
+        CheckConstraint("confidence_floor < auto_commit_threshold", name="ck_pred_bands_ordered"),
         UniqueConstraint("wafer_id", "artifact_id", name="uq_pred_wafer_artifact"),
     )
 

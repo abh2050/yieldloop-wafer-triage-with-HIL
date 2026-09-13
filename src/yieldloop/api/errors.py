@@ -34,7 +34,11 @@ class ErrorBody(BaseModel):
 
 
 def error_response(
-    status_code: int, reason: str, message: str, *, detail: dict[str, Any] | None = None,
+    status_code: int,
+    reason: str,
+    message: str,
+    *,
+    detail: dict[str, Any] | None = None,
     request_id: str | None = None,
 ) -> JSONResponse:
     return JSONResponse(

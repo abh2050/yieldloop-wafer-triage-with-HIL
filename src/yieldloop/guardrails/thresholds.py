@@ -79,9 +79,7 @@ def classify(confidence: float, bands: RoutingBands) -> RoutingDecision:
             everything.
     """
     if not 0.0 <= confidence <= 1.0:
-        raise ValueError(
-            f"confidence must be a calibrated probability in [0, 1]; got {confidence}"
-        )
+        raise ValueError(f"confidence must be a calibrated probability in [0, 1]; got {confidence}")
 
     if confidence >= bands.auto_commit_threshold:
         return RoutingDecision(

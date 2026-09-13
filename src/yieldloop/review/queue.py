@@ -61,8 +61,8 @@ def pending_query(gate: TaskGate | None = None) -> Select[tuple[ReviewTask]]:
 
 
 def queue_depth(session: Session, gate: TaskGate | None = None) -> int:
-    statement = select(func.count()).select_from(ReviewTask).where(
-        ReviewTask.state == TaskState.PENDING
+    statement = (
+        select(func.count()).select_from(ReviewTask).where(ReviewTask.state == TaskState.PENDING)
     )
     if gate is not None:
         statement = statement.where(ReviewTask.gate == gate)

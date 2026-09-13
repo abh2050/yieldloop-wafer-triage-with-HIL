@@ -85,7 +85,11 @@ class ScriptedTransport:
         self.calls = 0
 
     def complete(
-        self, *, system_prompt: str, user_message: str, json_schema: dict[str, object],
+        self,
+        *,
+        system_prompt: str,
+        user_message: str,
+        json_schema: dict[str, object],
         max_completion_tokens: int,
     ) -> Completion:
         self.calls += 1
@@ -140,8 +144,12 @@ def _bundle(*, note: str = "waferIndex values are non-contiguous; 3 missing.") -
 
 def _empty_bundle() -> ContextBundle:
     return ContextBundle(
-        lot_id=LOT_ID, lot_name="lot00891", classifier=(), die_statistics=(),
-        similar_lots=(), process_events=(),
+        lot_id=LOT_ID,
+        lot_name="lot00891",
+        classifier=(),
+        die_statistics=(),
+        similar_lots=(),
+        process_events=(),
     )
 
 
@@ -269,9 +277,7 @@ def test_malformed_output_fails_closed(db_session: Session, bad_output: str) -> 
     )
     assert result.abstained
     assert db_session.execute(select(func.count()).select_from(Hypothesis)).scalar_one() == 0
-    stages = set(
-        db_session.execute(select(GuardrailAction.stage)).scalars().all()
-    )
+    stages = set(db_session.execute(select(GuardrailAction.stage)).scalars().all())
     assert GuardrailStage.SCHEMA_VALIDATOR in stages
 
 
@@ -385,9 +391,7 @@ def test_daily_cap_refuses_before_spending(db_session: Session) -> None:
     service = _service(
         db_session, transport, session_cost_cap_usd=0.0001, daily_cost_cap_usd=0.0001
     )
-    result = service.generate(
-        bundle=_bundle(), requested_by="reviewer-a", session_id="s1", now=NOW
-    )
+    result = service.generate(bundle=_bundle(), requested_by="reviewer-a", session_id="s1", now=NOW)
     assert result.abstained
     assert transport.calls == 0
     action = db_session.execute(
@@ -410,9 +414,7 @@ def test_repeated_schema_failures_open_the_breaker_and_stop_calling(
     assert service.breaker.is_open
     assert transport.calls == 3
 
-    result = service.generate(
-        bundle=_bundle(), requested_by="reviewer-a", session_id="s1", now=NOW
-    )
+    result = service.generate(bundle=_bundle(), requested_by="reviewer-a", session_id="s1", now=NOW)
     assert result.degraded
     assert result.abstained
     assert transport.calls == 3, "an open breaker must not reach the model"

@@ -202,9 +202,7 @@ def read_frame(path: Path | None = None, settings: Settings | None = None) -> pd
     return frame
 
 
-def iter_records(
-    frame: pd.DataFrame, *, skip_invalid: bool = True
-) -> Iterator[RawWaferRecord]:
+def iter_records(frame: pd.DataFrame, *, skip_invalid: bool = True) -> Iterator[RawWaferRecord]:
     """Yield one :class:`RawWaferRecord` per usable row.
 
     A small number of WM811K rows carry degenerate maps -- zero-size, or entirely

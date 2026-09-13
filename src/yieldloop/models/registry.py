@@ -196,9 +196,7 @@ class ArtifactRegistry:
         to load.
         """
         self._session.execute(
-            update(ModelArtifact)
-            .where(ModelArtifact.kind == record.kind)
-            .values(is_active=False)
+            update(ModelArtifact).where(ModelArtifact.kind == record.kind).values(is_active=False)
         )
         self._session.execute(
             update(ModelArtifact).where(ModelArtifact.id == record.id).values(is_active=True)

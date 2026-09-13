@@ -37,9 +37,7 @@ def lot_position(lot_name: str, seed: int) -> float:
     return int.from_bytes(digest, byteorder="big") / _HASH_SPACE
 
 
-def assign_split(
-    lot_name: str, seed: int, train_fraction: float, val_fraction: float
-) -> SplitName:
+def assign_split(lot_name: str, seed: int, train_fraction: float, val_fraction: float) -> SplitName:
     """Assign one lot to a split.
 
     Raises:

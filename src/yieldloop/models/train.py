@@ -99,9 +99,7 @@ def macro_f1(predicted: Tensor, labels: Tensor) -> float:
         recall_denominator = float(actual.sum())
         precision = true_positive / precision_denominator if precision_denominator else 0.0
         recall = true_positive / recall_denominator if recall_denominator else 0.0
-        scores.append(
-            2 * precision * recall / (precision + recall) if precision + recall else 0.0
-        )
+        scores.append(2 * precision * recall / (precision + recall) if precision + recall else 0.0)
     return sum(scores) / len(scores) if scores else 0.0
 
 
@@ -127,7 +125,9 @@ def support_counts(labels: Tensor) -> dict[str, int]:
 
 
 def _evaluate(
-    model: WaferCNN, loader: DataLoader[tuple[Tensor, Tensor]], device: torch.device,
+    model: WaferCNN,
+    loader: DataLoader[tuple[Tensor, Tensor]],
+    device: torch.device,
     criterion: nn.Module,
 ) -> tuple[float, float, float, Tensor, Tensor]:
     logits, labels = compute_logits(model, loader, device)
@@ -164,9 +164,7 @@ def train_classifier(
     train_samples = load_samples(session, SplitName.TRAIN, limit=train_limit)
     val_samples = load_samples(session, SplitName.VAL)
     if not train_samples:
-        raise ValueError(
-            "no labeled training wafers found; run scripts/bootstrap_db.py first"
-        )
+        raise ValueError("no labeled training wafers found; run scripts/bootstrap_db.py first")
     if not val_samples:
         raise ValueError("no labeled validation wafers found")
 
@@ -222,9 +220,7 @@ def train_classifier(
             running += float(loss.detach()) * grids.shape[0]
             seen += grids.shape[0]
 
-        val_loss, val_accuracy, val_f1, _, _ = _evaluate(
-            model, val_loader, device, eval_criterion
-        )
+        val_loss, val_accuracy, val_f1, _, _ = _evaluate(model, val_loader, device, eval_criterion)
         metrics = EpochMetrics(
             epoch=epoch,
             train_loss=running / max(seen, 1),

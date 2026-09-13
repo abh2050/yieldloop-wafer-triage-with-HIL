@@ -43,9 +43,7 @@ def parse_response(raw: str, *, expected_lot_id: str) -> HypothesisResponse:
             schema problem.
     """
     if not raw or not raw.strip():
-        raise SchemaViolationError(
-            "agent returned an empty response", detail={"stage": "empty"}
-        )
+        raise SchemaViolationError("agent returned an empty response", detail={"stage": "empty"})
 
     encoded_length = len(raw.encode("utf-8"))
     if encoded_length > MAX_RESPONSE_BYTES:

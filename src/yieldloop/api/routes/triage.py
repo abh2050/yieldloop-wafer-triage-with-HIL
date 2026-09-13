@@ -127,9 +127,7 @@ def get_wafer(wafer_id: str, session: SessionDep, settings: SettingsDep) -> Wafe
             prediction.predicted_label.value if prediction is not None and show else None
         ),
         confidence=prediction.confidence if prediction is not None and show else None,
-        probabilities=(
-            dict(prediction.probabilities) if prediction is not None and show else None
-        ),
+        probabilities=(dict(prediction.probabilities) if prediction is not None and show else None),
         routing_band=prediction.routing_band if prediction is not None else None,
         show_prediction=show,
     )

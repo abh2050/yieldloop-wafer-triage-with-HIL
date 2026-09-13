@@ -52,9 +52,7 @@ def _softmax(logits: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
 def pools(draw: st.DrawFn, min_size: int = 1, max_size: int = 40) -> dict[str, object]:
     """A candidate pool: ids, calibrated probabilities, and embeddings."""
     size = draw(st.integers(min_value=min_size, max_value=max_size))
-    logits = draw(
-        arrays(np.float64, (size, CLASS_COUNT), elements=finite_floats)
-    )
+    logits = draw(arrays(np.float64, (size, CLASS_COUNT), elements=finite_floats))
     embeddings = draw(arrays(np.float64, (size, EMBED_DIM), elements=finite_floats))
     labeled_count = draw(st.integers(min_value=0, max_value=size))
     ids = [f"lot{i // 25:04d}-{i % 25}" for i in range(size)]
@@ -106,9 +104,7 @@ def test_batch_never_contains_duplicates(
 
 @hyp_settings(suppress_health_check=[HealthCheck.too_slow], deadline=None)
 @given(pool=pools(), batch_size=st.integers(min_value=0, max_value=60))
-def test_batch_never_exceeds_the_requested_size(
-    pool: dict[str, object], batch_size: int
-) -> None:
+def test_batch_never_exceeds_the_requested_size(pool: dict[str, object], batch_size: int) -> None:
     result = select_batch(_request(pool, batch_size=batch_size))
     assert len(result) <= batch_size
 
@@ -126,9 +122,7 @@ def test_every_selected_wafer_came_from_the_pool(
 
 @hyp_settings(suppress_health_check=[HealthCheck.too_slow], deadline=None)
 @given(pool=pools(), strategy=st.sampled_from(SamplingStrategy))
-def test_selection_is_reproducible(
-    pool: dict[str, object], strategy: SamplingStrategy
-) -> None:
+def test_selection_is_reproducible(pool: dict[str, object], strategy: SamplingStrategy) -> None:
     first = select_batch(_request(pool, strategy=strategy))
     second = select_batch(_request(pool, strategy=strategy))
     assert first.wafer_ids == second.wafer_ids
@@ -250,9 +244,7 @@ def test_entropy_ignores_class_order(
     probabilities = _softmax(logits)
     rng = np.random.default_rng(permutation_seed)
     order = rng.permutation(probabilities.shape[1])
-    assert np.allclose(
-        shannon_entropy(probabilities), shannon_entropy(probabilities[:, order])
-    )
+    assert np.allclose(shannon_entropy(probabilities), shannon_entropy(probabilities[:, order]))
 
 
 def test_confident_prediction_has_exactly_zero_entropy() -> None:

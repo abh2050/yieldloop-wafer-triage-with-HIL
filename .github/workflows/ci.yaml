@@ -1,0 +1,79 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: yieldloop
+          POSTGRES_PASSWORD: yieldloop
+          POSTGRES_DB: yieldloop
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U yieldloop -d yieldloop"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      YIELDLOOP_DATABASE_URL: postgresql+psycopg://yieldloop:yieldloop@localhost:5432/yieldloop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv venv --python 3.12 .venv
+      - run: uv pip install --python .venv/bin/python -e ".[dev]"
+
+      - name: Lint
+        run: .venv/bin/ruff check .
+
+      - name: Format check
+        run: .venv/bin/ruff format --check .
+
+      - name: Types
+        run: .venv/bin/mypy
+
+      - name: Migrations apply and match the models
+        run: |
+          .venv/bin/alembic -c src/yieldloop/db/migrations/alembic.ini upgrade head
+          .venv/bin/alembic -c src/yieldloop/db/migrations/alembic.ini check
+
+      # The dataset tests skip without the archive; everything else runs against
+      # a real Postgres. Nothing here is mocked.
+      - name: Tests
+        run: .venv/bin/pytest -q -m "not openai and not dataset"
+
+  guardrails:
+    # Split out so a guardrail regression is unmistakable in the checks list,
+    # and because it needs no database, no dataset, and no API key.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv venv --python 3.12 .venv
+      - run: uv pip install --python .venv/bin/python -e ".[dev]"
+      - name: Adversarial guardrail suite
+        run: .venv/bin/python -m eval.suites.guardrail_suite
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build

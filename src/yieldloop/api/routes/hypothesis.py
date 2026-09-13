@@ -82,9 +82,7 @@ def generate(
     settings: SettingsDep,
     reviewer_id: ReviewerDep,
 ) -> HypothesisEnvelope:
-    lot = session.execute(
-        select(Lot).where(Lot.lot_name == payload.lot_name)
-    ).scalar_one_or_none()
+    lot = session.execute(select(Lot).where(Lot.lot_name == payload.lot_name)).scalar_one_or_none()
     if lot is None:
         raise HTTPException(status_code=404, detail=f"no lot {payload.lot_name}")
 
@@ -147,9 +145,7 @@ class LotSummaryResponse(BaseModel):
 
 
 @router.get("/lot/{lot_name}", response_model=LotSummaryResponse)
-def lot_summary(
-    lot_name: str, session: SessionDep, settings: SettingsDep
-) -> LotSummaryResponse:
+def lot_summary(lot_name: str, session: SessionDep, settings: SettingsDep) -> LotSummaryResponse:
     """What evidence exists for a lot, before spending anything on the agent."""
     lot = session.execute(select(Lot).where(Lot.lot_name == lot_name)).scalar_one_or_none()
     if lot is None:

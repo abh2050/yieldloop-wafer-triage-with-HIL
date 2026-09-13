@@ -63,6 +63,8 @@ ignore = ["A003"]
 # The adversarial corpus deliberately contains fullwidth, zero-width, and
 # bidirectional characters: they are the payload under test, not typos.
 "tests/guardrails/*" = ["ARG001", "ARG002", "RUF001"]
+# Same reason: the adversarial corpus is the payload under test.
+"eval/suites/guardrail_suite.py" = ["RUF001"]
 
 [tool.mypy]
 python_version = "3.12"

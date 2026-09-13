@@ -79,9 +79,7 @@ def run_round(
     dataset = WaferDataset(samples)
     loader = build_loader(dataset, batch_size=256, shuffle=False, seed=seed)
 
-    logger.info(
-        "round_scoring", pool=len(dataset), strategy=strategy.value, device=str(device)
-    )
+    logger.info("round_scoring", pool=len(dataset), strategy=strategy.value, device=str(device))
     started = time.monotonic()
 
     logit_batches: list[torch.Tensor] = []
@@ -135,9 +133,7 @@ def run_round(
     created = 0
     for rank, wafer_id in enumerate(selection.wafer_ids):
         index = position[wafer_id]
-        wafer = session.execute(
-            select(Wafer).where(Wafer.wafer_id == wafer_id)
-        ).scalar_one()
+        wafer = session.execute(select(Wafer).where(Wafer.wafer_id == wafer_id)).scalar_one()
 
         row = probabilities[index]
         top = int(row.argmax())
@@ -221,9 +217,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=SamplingStrategy.ENTROPY_DIVERSITY.value,
     )
     parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument(
-        "--pool", type=int, default=20_000, help="unlabeled candidates to score"
-    )
+    parser.add_argument("--pool", type=int, default=20_000, help="unlabeled candidates to score")
     parser.add_argument("--seed", type=int, default=None)
     return parser
 

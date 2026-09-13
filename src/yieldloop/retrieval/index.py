@@ -109,7 +109,9 @@ def build_index(
         artifact_hash=artifact_hash,
     )
     logger.info(
-        "index_built", vectors=int(array.shape[0]), dimension=manifest.dimension,
+        "index_built",
+        vectors=int(array.shape[0]),
+        dimension=manifest.dimension,
         artifact_hash=artifact_hash[:12],
     )
     return index, manifest
