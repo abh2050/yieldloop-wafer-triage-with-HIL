@@ -2,6 +2,21 @@
   "tolerance": 0.02,
   "note": "Committed metric floors. The eval gate fails a pull request when a metric regresses beyond the tolerance. Update deliberately, with the reason in the commit message.",
   "metrics": {
+    "classifier.accuracy": 0.963577,
+    "classifier.balanced_accuracy": 0.873528,
+    "classifier.ece_calibrated": 0.006627,
+    "classifier.escaped_error_rate": 0.004413,
+    "classifier.macro_f1": 0.8307,
+    "classifier.mce_calibrated": 0.085315,
+    "classifier.recall.center": 0.930514,
+    "classifier.recall.donut": 0.734694,
+    "classifier.recall.edge_loc": 0.762821,
+    "classifier.recall.edge_ring": 0.954373,
+    "classifier.recall.loc": 0.853119,
+    "classifier.recall.near_full": 0.9,
+    "classifier.recall.none": 0.975972,
+    "classifier.recall.random": 0.947712,
+    "classifier.recall.scratch": 0.802548,
     "guardrail.passed": 1.0
   }
 }

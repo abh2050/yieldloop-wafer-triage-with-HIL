@@ -20,6 +20,7 @@ from eval.datasets import GoldenSet, load_golden_set, rare_classes
 from eval.metrics.calibration import (
     expected_calibration_error,
     floor_sweep,
+    high_confidence_calibration_error,
     maximum_calibration_error,
     reliability_bins,
     routing_curve,
@@ -50,6 +51,9 @@ class ClassifierSuiteResult:
     ece_calibrated: float
     ece_uncalibrated: float
     mce_calibrated: float
+    #: Calibration gap in the band auto-commit governs, and its population.
+    auto_commit_calibration_error: float
+    auto_commit_samples: int
     temperature: float
     routing: list[dict[str, Any]]
     floor_sweep: list[dict[str, Any]]
@@ -68,6 +72,8 @@ class ClassifierSuiteResult:
                 "ece_uncalibrated": self.ece_uncalibrated,
                 "ece_calibrated": self.ece_calibrated,
                 "mce_calibrated": self.mce_calibrated,
+                "auto_commit_calibration_error": self.auto_commit_calibration_error,
+                "auto_commit_samples": self.auto_commit_samples,
                 "reliability": self.reliability,
             },
             "routing_curve": self.routing,
@@ -110,6 +116,9 @@ def run(
 
     report = classification_report(predicted_np, actual_np, LABELS)
     rare = rare_classes(session, SplitName.HOLDOUT)
+    auto_commit_gap, auto_commit_n = high_confidence_calibration_error(
+        confidence, correct, threshold=settings.auto_commit_threshold
+    )
 
     return ClassifierSuiteResult(
         report=report,
@@ -120,6 +129,8 @@ def run(
             uncalibrated.argmax(dim=1).eq(actual).numpy(),
         ),
         mce_calibrated=maximum_calibration_error(confidence, correct),
+        auto_commit_calibration_error=auto_commit_gap,
+        auto_commit_samples=auto_commit_n,
         temperature=temperature,
         routing=[
             point.as_dict()

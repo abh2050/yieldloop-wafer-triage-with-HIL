@@ -9,7 +9,7 @@ fab actually asks before letting a model commit anything unreviewed.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
 import numpy as np
 import numpy.typing as npt
@@ -88,14 +88,31 @@ def expected_calibration_error(
     return total
 
 
+#: Bins holding fewer samples than this are excluded from MCE. A bin with two
+#: wafers admits accuracies of only 0, 0.5, or 1, so its "gap" is sampling noise.
+#: On a real holdout run an unfiltered MCE reported 0.704 from a 2-sample bin,
+#: while the bin the auto-commit threshold actually sits in -- holding 89% of the
+#: wafers -- was calibrated to within 0.003. Presenting the former would
+#: misdirect exactly the person reading the report to decide if automation is
+#: safe.
+MIN_BIN_COUNT_FOR_MCE: Final[int] = 30
+
+
 def maximum_calibration_error(
-    confidence: FloatArray, correct: npt.NDArray[np.bool_], bins: int = 15
+    confidence: FloatArray,
+    correct: npt.NDArray[np.bool_],
+    bins: int = 15,
+    *,
+    min_bin_count: int = MIN_BIN_COUNT_FOR_MCE,
 ) -> float:
-    """Worst-case bin gap.
+    """Worst gap among bins with enough samples to measure one.
 
     Reported alongside ECE because a model can have a small average gap while
     being badly wrong in exactly the high-confidence bin the auto-commit
-    threshold sits in.
+    threshold sits in, which is the case ECE alone hides.
+
+    Sparse bins are excluded rather than included with a caveat: a number in a
+    report gets quoted, and the caveat does not travel with it.
     """
     if confidence.size == 0:
         return 0.0
@@ -104,10 +121,29 @@ def maximum_calibration_error(
     for index in range(bins):
         low, high = edges[index], edges[index + 1]
         mask = (confidence > low) & (confidence <= high) if index else (confidence <= high)
-        if not bool(mask.any()):
+        if int(mask.sum()) < min_bin_count:
             continue
         worst = max(worst, abs(float(correct[mask].mean()) - float(confidence[mask].mean())))
     return worst
+
+
+def high_confidence_calibration_error(
+    confidence: FloatArray, correct: npt.NDArray[np.bool_], *, threshold: float
+) -> tuple[float, int]:
+    """Calibration gap among predictions at or above ``threshold``.
+
+    The figure that actually bears on whether auto-commit is safe: it measures
+    the region the threshold governs instead of averaging across the whole range.
+    Returns the gap and the population it was measured on, because a gap from a
+    handful of predictions is not evidence.
+    """
+    if confidence.size == 0:
+        return 0.0, 0
+    mask = confidence >= threshold
+    count = int(mask.sum())
+    if count == 0:
+        return 0.0, 0
+    return abs(float(correct[mask].mean()) - float(confidence[mask].mean())), count
 
 
 def reliability_bins(

@@ -96,6 +96,12 @@ def _classifier_section(result: dict[str, Any]) -> str:
         "class is predicted, so accuracy above is unaffected and the improvement below ",
         "is real.",
         "",
+        "The last row is the one that bears on whether automation is safe: it measures ",
+        "only the band auto-commit governs, rather than averaging across a range most ",
+        "predictions never reach. Max calibration error ignores bins holding fewer than ",
+        "30 predictions, since a two-sample bin admits accuracies of only 0, 0.5 or 1 ",
+        "and its apparent gap is noise.",
+        "",
         _table(
             ["Metric", "Value"],
             [
@@ -104,7 +110,13 @@ def _classifier_section(result: dict[str, Any]) -> str:
                 ["ECE after calibration", f"{calibration['ece_calibrated']:.4f}"],
                 [
                     "Max calibration error",
-                    f"{calibration['mce_calibrated']:.4f} (worst single bin)",
+                    f"{calibration['mce_calibrated']:.4f} "
+                    "(worst bin holding at least 30 predictions)",
+                ],
+                [
+                    "Gap in the auto-commit band",
+                    f"{calibration['auto_commit_calibration_error']:.4f} over "
+                    f"{calibration['auto_commit_samples']:,} predictions",
                 ],
             ],
         ),
