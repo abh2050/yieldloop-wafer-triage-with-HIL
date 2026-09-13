@@ -61,22 +61,38 @@ LABELS = [cls.value for cls in CLASS_ORDER]
 #: help most here, and random sampling struggles to find examples at all.
 RARE_SHARE = 0.01
 
+#: A class needs at least this many evaluation wafers for its recall to mean
+#: anything. With 8 examples, recall can only take the values 0, 0.125, 0.25 and
+#: so on, and the movement between arms is quantization rather than signal. The
+#: rare-class figure is reported with its support so it cannot be read as a
+#: finding when it is not one.
+MIN_SUPPORT_FOR_RECALL = 30
+
 
 @dataclass(frozen=True, slots=True)
 class ArmResult:
     strategy: SamplingStrategy
     points: list[EfficiencyPoint]
+    #: Smallest per-class evaluation support among the rare classes.
+    rare_class_support: int
 
 
-def _rare_class_recall(recalls: dict[str, float], counts: dict[str, int]) -> float:
-    """Mean recall over classes that are rare in the evaluation set."""
+def _rare_class_recall(recalls: dict[str, float], counts: dict[str, int]) -> tuple[float, int]:
+    """Mean recall over rare classes, and the *smallest* per-class support in it.
+
+    The minimum rather than the sum, because the average is only as trustworthy
+    as its weakest term: a mean over one class with 74 wafers and another with 8
+    is dominated by the quantization of the second, and summing them to 82 would
+    make a figure look well-supported precisely when it is not.
+    """
     total = sum(counts.values())
     if total == 0:
-        return 0.0
+        return 0.0, 0
     rare = [label for label, count in counts.items() if count / total < RARE_SHARE]
     if not rare:
-        return 0.0
-    return float(np.mean([recalls.get(label, 0.0) for label in rare]))
+        return 0.0, 0
+    weakest = min(counts[label] for label in rare)
+    return float(np.mean([recalls.get(label, 0.0) for label in rare])), weakest
 
 
 def _train_once(
@@ -218,19 +234,22 @@ def run_arm(
         )
 
     points: list[EfficiencyPoint] = []
+    rare_supports: list[int] = []
     for budget in ordered_budgets:
         chosen = [by_id[wafer_id] for wafer_id in acquisition[budget]]
         started = time.monotonic()
         f1, accuracy, recalls, support = _train_once(chosen, validation, config, device)
+        rare_recall, rare_support = _rare_class_recall(recalls, support)
         points.append(
             EfficiencyPoint(
                 strategy=strategy.value,
                 label_count=len(chosen),
                 macro_f1=f1,
                 accuracy=accuracy,
-                rare_class_recall=_rare_class_recall(recalls, support),
+                rare_class_recall=rare_recall,
             )
         )
+        rare_supports.append(rare_support)
         logger.info(
             "efficiency_point",
             strategy=strategy.value,
@@ -239,7 +258,11 @@ def run_arm(
             accuracy=round(accuracy, 4),
             seconds=round(time.monotonic() - started, 1),
         )
-    return ArmResult(strategy=strategy, points=points)
+    return ArmResult(
+        strategy=strategy,
+        points=points,
+        rare_class_support=rare_supports[0] if rare_supports else 0,
+    )
 
 
 def _simulate_active(
@@ -376,6 +399,9 @@ def main(argv: list[str] | None = None) -> int:
         "active": curve_points(active.points),
         "random": curve_points(control.points),
         "comparison": comparison.as_dict(),
+        "rare_class_support": active.rare_class_support,
+        "min_support_for_recall": MIN_SUPPORT_FOR_RECALL,
+        "rare_class_recall_measurable": active.rare_class_support >= MIN_SUPPORT_FOR_RECALL,
         "seconds": time.monotonic() - started,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

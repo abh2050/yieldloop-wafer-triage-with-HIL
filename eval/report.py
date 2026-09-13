@@ -179,20 +179,19 @@ def _label_efficiency_section(efficiency: dict[str, Any] | None) -> str:
     active = {p["label_count"]: p for p in efficiency["active"]}
     random_arm = {p["label_count"]: p for p in efficiency["random"]}
 
+    rare_measurable = efficiency.get("rare_class_recall_measurable", False)
     rows = []
     for budget in sorted(set(active) & set(random_arm)):
         a, r = active[budget], random_arm[budget]
         delta = a["macro_f1"] - r["macro_f1"]
-        rows.append(
-            [
-                f"{budget:,}",
-                f"{a['macro_f1']:.4f}",
-                f"{r['macro_f1']:.4f}",
-                f"{delta:+.4f}",
-                f"{a['rare_class_recall']:.3f}",
-                f"{r['rare_class_recall']:.3f}",
-            ]
-        )
+        row = [f"{budget:,}", f"{a['macro_f1']:.4f}", f"{r['macro_f1']:.4f}", f"{delta:+.4f}"]
+        if rare_measurable:
+            row += [f"{a['rare_class_recall']:.3f}", f"{r['rare_class_recall']:.3f}"]
+        rows.append(row)
+
+    headers = ["Labels", "Macro F1 (active)", "Macro F1 (random)", "Delta"]
+    if rare_measurable:
+        headers += ["Rare recall (active)", "Rare recall (random)"]
 
     saving = comparison.get("label_saving_ratio")
     reached = (
@@ -218,17 +217,7 @@ def _label_efficiency_section(efficiency: dict[str, Any] | None) -> str:
         "had seen the whole dataset would leak it into the selection, which is the most ",
         "common way this experiment is reported wrongly.",
         "",
-        _table(
-            [
-                "Labels",
-                "Macro F1 (active)",
-                "Macro F1 (random)",
-                "Delta",
-                "Rare recall (active)",
-                "Rare recall (random)",
-            ],
-            rows,
-        ),
+        _table(headers, rows),
         "",
         _table(
             ["Summary", "Value"],
@@ -243,6 +232,43 @@ def _label_efficiency_section(efficiency: dict[str, Any] | None) -> str:
             ],
         ),
     ]
+    if not rare_measurable:
+        support = efficiency.get("rare_class_support", 0)
+        minimum = efficiency.get("min_support_for_recall", 30)
+        lines += [
+            "",
+            f"> Rare-class recall is **omitted**, not hidden: the smallest rare class "
+            f"has {support} wafers in this evaluation set, below the {minimum} needed for "
+            "a recall figure to mean anything. At that size recall can only take a few "
+            "discrete values, so movement between the arms is quantization rather than "
+            "signal, and an average is only as trustworthy as its weakest term. "
+            "Per-class recall on the full holdout is in the table above.",
+        ]
+
+    first = min(set(active) & set(random_arm), default=None)
+    if first is not None and abs(active[first]["macro_f1"] - random_arm[first]["macro_f1"]) < 1e-9:
+        lines += [
+            "",
+            f"> The two arms are **identical at {first:,} labels** by construction, not by "
+            "coincidence: active learning has no model to select with until it has labels, "
+            "so it starts from a random seed set of that size. The matching scores confirm "
+            "the harness is comparing what it claims. That point contributes a zero to the "
+            "mean delta, so the mean understates the effect; the comparison begins at the "
+            "second budget.",
+        ]
+
+    if comparison["strategy_labels_to_target"] and not comparison["baseline_labels_to_target"]:
+        largest = max(set(active) & set(random_arm))
+        lines += [
+            "",
+            f"> Random never reached macro F1 {comparison['target']} within "
+            f"{largest:,} labels, so an exact saving ratio cannot be computed. The "
+            f"measurable statement is a lower bound: active reached it at "
+            f"{comparison['strategy_labels_to_target']:,}, so the saving is **at least "
+            f"{largest / comparison['strategy_labels_to_target']:.1f}x**, and the true "
+            "figure requires extending the random arm.",
+        ]
+
     if comparison["mean_delta"] <= 0:
         lines += [
             "",

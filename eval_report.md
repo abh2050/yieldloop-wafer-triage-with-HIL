@@ -4,7 +4,7 @@ All metrics are computed from the real WM811K dataset and from decisions real
 reviewers made in this console. There is no synthetic ground truth anywhere in 
 this report.
 
-**Gate: PASS** · 6.5s
+**Gate: PASS** · 16.7s
 
 ## Classifier
 
@@ -94,6 +94,65 @@ them, which is the column a fab actually cares about.
 | Escaped error rate | 0.44% |
 
 
+### Label efficiency
+
+**Chart 2 of 2.** Entropy-plus-diversity selection against random, compared 
+only at matched label counts. Both arms use the same splits, hyperparameters 
+and seed and differ only in which wafers were chosen.
+
+The active arm is simulated iteratively: the selector at each step is trained 
+only on what has been acquired so far. Selecting in one shot with a model that 
+had seen the whole dataset would leak it into the selection, which is the most 
+common way this experiment is reported wrongly.
+
+| Labels | Macro F1 (active) | Macro F1 (random) | Delta |
+| --- | --- | --- | --- |
+| 1,000 | 0.2516 | 0.2516 | +0.0000 |
+| 2,000 | 0.3965 | 0.3000 | +0.0965 |
+| 4,000 | 0.4809 | 0.3856 | +0.0953 |
+| 8,000 | 0.6174 | 0.4966 | +0.1208 |
+| 16,000 | 0.7908 | 0.5891 | +0.2017 |
+
+
+| Summary | Value |
+| --- | --- |
+| Mean macro F1 delta | +0.1029 |
+| Labels to reach macro F1 0.6 | active 8,000 |
+|  | random never |
+| Label saving | not reached by both arms |
+
+
+> Rare-class recall is **omitted**, not hidden: the smallest rare class has 8 wafers in this evaluation set, below the 30 needed for a recall figure to mean anything. At that size recall can only take a few discrete values, so movement between the arms is quantization rather than signal, and an average is only as trustworthy as its weakest term. Per-class recall on the full holdout is in the table above.
+
+> The two arms are **identical at 1,000 labels** by construction, not by coincidence: active learning has no model to select with until it has labels, so it starts from a random seed set of that size. The matching scores confirm the harness is comparing what it claims. That point contributes a zero to the mean delta, so the mean understates the effect; the comparison begins at the second budget.
+
+> Random never reached macro F1 0.6 within 16,000 labels, so an exact saving ratio cannot be computed. The measurable statement is a lower bound: active reached it at 8,000, so the saving is **at least 2.0x**, and the true figure requires extending the random arm.
+
+## Root cause agent
+
+Grounding rate is the fraction of proposed hypotheses whose citations all 
+resolved to evidence in the context bundle. A rate below 100% does not mean a 
+reviewer saw something wrong -- the gate dropped those claims -- it means the 
+model attempted a fabrication.
+
+Abstention rate is **not** minimized. Abstaining on a thin bundle is correct; a 
+rate of zero against sparse evidence would mean the model is inventing support.
+
+| Metric | Value |
+| --- | --- |
+| Calls | 4 |
+| Hypotheses proposed | 2 |
+| Hypotheses grounded | 2 |
+| Grounding rate | 100.00% |
+| Abstention rate | 75.00% |
+| Fabricated citations | 0 |
+| Median latency | 2744 ms |
+| p95 latency | 3337 ms |
+| Cost | $0.0333 |
+
+
+> No reviewer resolutions exist for the evaluated lots, so hypothesis precision cannot be measured. This is a data gap, not a score of zero.
+
 ## Reviewer agreement
 
 Override rate alone is ambiguous: a low rate can mean the model is good, or 
@@ -112,7 +171,7 @@ agreement rather than earning it, and the confidence floor should rise.
 | Override rate (all) | 84.62% |
 | Override rate (prediction shown) | 0.00% |
 | Override rate (prediction withheld) | 84.62% |
-| Anchoring delta | +0.00 pp |
+| Anchoring delta | not measurable — one regime has no decisions |
 | Median decision time | 0.01 s |
 | p95 decision time | 0.02 s |
 

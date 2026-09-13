@@ -2,6 +2,8 @@
   "tolerance": 0.02,
   "note": "Committed metric floors. The eval gate fails a pull request when a metric regresses beyond the tolerance. Update deliberately, with the reason in the commit message.",
   "metrics": {
+    "agent.fabrication_rate": 0.0,
+    "agent.grounding_rate": 1.0,
     "classifier.accuracy": 0.963577,
     "classifier.balanced_accuracy": 0.873528,
     "classifier.ece_calibrated": 0.006627,

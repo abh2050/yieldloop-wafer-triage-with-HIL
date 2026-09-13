@@ -1,0 +1,120 @@
+{
+  "budgets": [
+    1000,
+    2000,
+    4000,
+    8000,
+    16000
+  ],
+  "pool_size": 119944,
+  "validation_size": 8000,
+  "target_macro_f1": 0.6,
+  "active": [
+    {
+      "strategy": "entropy_diversity",
+      "label_count": 1000,
+      "macro_f1": 0.25158837867779954,
+      "accuracy": 0.76825,
+      "rare_class_recall": 0.38513513513513514
+    },
+    {
+      "strategy": "entropy_diversity",
+      "label_count": 2000,
+      "macro_f1": 0.39649332354853056,
+      "accuracy": 0.849125,
+      "rare_class_recall": 0.17736486486486486
+    },
+    {
+      "strategy": "entropy_diversity",
+      "label_count": 4000,
+      "macro_f1": 0.4808914546502584,
+      "accuracy": 0.87525,
+      "rare_class_recall": 0.5777027027027027
+    },
+    {
+      "strategy": "entropy_diversity",
+      "label_count": 8000,
+      "macro_f1": 0.6173638972851729,
+      "accuracy": 0.883,
+      "rare_class_recall": 0.9932432432432432
+    },
+    {
+      "strategy": "entropy_diversity",
+      "label_count": 16000,
+      "macro_f1": 0.7907743061781761,
+      "accuracy": 0.951,
+      "rare_class_recall": 0.8277027027027026
+    }
+  ],
+  "random": [
+    {
+      "strategy": "random",
+      "label_count": 1000,
+      "macro_f1": 0.25158837867779954,
+      "accuracy": 0.76825,
+      "rare_class_recall": 0.38513513513513514
+    },
+    {
+      "strategy": "random",
+      "label_count": 2000,
+      "macro_f1": 0.29997945788499325,
+      "accuracy": 0.83275,
+      "rare_class_recall": 0.4797297297297297
+    },
+    {
+      "strategy": "random",
+      "label_count": 4000,
+      "macro_f1": 0.3856270880105837,
+      "accuracy": 0.879,
+      "rare_class_recall": 0.16891891891891891
+    },
+    {
+      "strategy": "random",
+      "label_count": 8000,
+      "macro_f1": 0.4966066490096387,
+      "accuracy": 0.86275,
+      "rare_class_recall": 0.32432432432432434
+    },
+    {
+      "strategy": "random",
+      "label_count": 16000,
+      "macro_f1": 0.5890542715976319,
+      "accuracy": 0.89775,
+      "rare_class_recall": 0.3918918918918919
+    }
+  ],
+  "comparison": {
+    "strategy": "entropy_diversity",
+    "baseline": "random",
+    "matched_counts": [
+      1000,
+      2000,
+      4000,
+      8000,
+      16000
+    ],
+    "strategy_scores": [
+      0.25158837867779954,
+      0.39649332354853056,
+      0.4808914546502584,
+      0.6173638972851729,
+      0.7907743061781761
+    ],
+    "baseline_scores": [
+      0.25158837867779954,
+      0.29997945788499325,
+      0.3856270880105837,
+      0.4966066490096387,
+      0.5890542715976319
+    ],
+    "mean_delta": 0.1028511030318581,
+    "target": 0.6,
+    "strategy_labels_to_target": 8000,
+    "baseline_labels_to_target": null,
+    "label_saving_ratio": null
+  },
+  "seconds": 2147.0971772499906,
+  "rare_class_support": 8,
+  "min_support_for_recall": 30,
+  "rare_class_recall_measurable": false
+}
