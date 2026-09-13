@@ -1,0 +1,86 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "yieldloop"
+version = "0.1.0"
+description = "Wafer map defect triage console with a human decision loop, active learning, and a grounded root cause agent."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Apache-2.0" }
+
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy>=2.0.36",
+    "alembic>=1.14",
+    "psycopg[binary]>=3.2",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "torch>=2.5",
+    "numpy>=2.1",
+    "pandas>=2.2",
+    "scikit-learn>=1.5",
+    "faiss-cpu>=1.9",
+    "openai>=1.57",
+    "structlog>=24.4",
+    "tenacity>=9.0",
+    "kaggle>=1.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-timeout>=2.3",
+    "httpx>=0.28",
+    "hypothesis>=6.119",
+    "testcontainers[postgres]>=4.8",
+    "mypy>=1.13",
+    "ruff>=0.8",
+    "pandas-stubs>=2.2",
+    "types-requests>=2.32",
+]
+
+[project.scripts]
+yieldloop-fetch-dataset = "scripts.fetch_dataset:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/yieldloop"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "eval", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "ARG", "PTH", "RUF"]
+ignore = ["A003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ARG001", "ARG002"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+disallow_any_unimported = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+packages = ["yieldloop"]
+
+[[tool.mypy.overrides]]
+module = ["faiss.*", "kaggle.*", "testcontainers.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "eval"]
+asyncio_mode = "auto"
+markers = [
+    "postgres: requires a real Postgres container started by the test session",
+    "openai: calls the live OpenAI API with a bounded token budget; skipped when OPENAI_API_KEY is absent",
+    "dataset: requires the real WM811K archive present on local disk",
+    "performance: asserts latency budgets against real data volume",
+]
+filterwarnings = ["error::DeprecationWarning:yieldloop.*"]

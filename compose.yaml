@@ -1,0 +1,78 @@
+name: yieldloop
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: yieldloop
+      POSTGRES_PASSWORD: yieldloop
+      POSTGRES_DB: yieldloop
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yieldloop -d yieldloop"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file: .env
+    environment:
+      YIELDLOOP_DATABASE_URL: postgresql+psycopg://yieldloop:yieldloop@postgres:5432/yieldloop
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["alembic", "-c", "src/yieldloop/db/migrations/alembic.ini", "upgrade", "head"]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file: .env
+    environment:
+      YIELDLOOP_DATABASE_URL: postgresql+psycopg://yieldloop:yieldloop@postgres:5432/yieldloop
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    env_file: .env
+    environment:
+      YIELDLOOP_DATABASE_URL: postgresql+psycopg://yieldloop:yieldloop@postgres:5432/yieldloop
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
