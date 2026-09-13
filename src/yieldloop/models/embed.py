@@ -39,9 +39,7 @@ class WaferSample:
 
 def labeled_query(split: SplitName) -> Select[tuple[Wafer]]:
     """Wafers in ``split`` that carry a human label."""
-    return select(Wafer).where(
-        Wafer.split == split, Wafer.dataset_label.is_not(None)
-    )
+    return select(Wafer).where(Wafer.split == split, Wafer.dataset_label.is_not(None))
 
 
 def unlabeled_query(split: SplitName) -> Select[tuple[Wafer]]:
@@ -49,29 +47,55 @@ def unlabeled_query(split: SplitName) -> Select[tuple[Wafer]]:
     return select(Wafer).where(Wafer.split == split, Wafer.dataset_label.is_(None))
 
 
+#: Rows fetched per round trip when streaming wafers out of the database.
+FETCH_BATCH = 5_000
+
+
 def load_samples(
-    session: Session, query: Select[tuple[Wafer]], *, limit: int | None = None
+    session: Session,
+    split: SplitName,
+    *,
+    labeled: bool = True,
+    limit: int | None = None,
 ) -> list[WaferSample]:
-    """Materialize wafers as samples, ordered deterministically by wafer id.
+    """Load wafers from one split, ordered deterministically by wafer id.
 
     Ordering explicitly rather than relying on the database's natural order keeps
     the data hash -- and therefore artifact identity -- stable across runs.
+
+    Selects the four columns it needs rather than whole ORM entities, and streams
+    them in batches. Loading 120,000 labeled wafers as mapped objects spends
+    minutes constructing instances and identity-map entries that are discarded
+    immediately, when only the grid bytes and the label are ever read.
     """
-    statement = query.order_by(Wafer.wafer_id)
+    statement = (
+        select(
+            Wafer.wafer_id,
+            Wafer.grid,
+            Wafer.grid_height,
+            Wafer.grid_width,
+            Wafer.dataset_label,
+        )
+        .where(
+            Wafer.split == split,
+            Wafer.dataset_label.is_not(None) if labeled else Wafer.dataset_label.is_(None),
+        )
+        .order_by(Wafer.wafer_id)
+    )
     if limit is not None:
         statement = statement.limit(limit)
-    rows = session.execute(statement).scalars().all()
+
     return [
         WaferSample(
-            wafer_id=row.wafer_id,
+            wafer_id=wafer_id,
             # Copied out of the read-only buffer: torch cannot take a
             # non-writable array without warning, and the copy is cheap at 4 KiB.
-            grid=np.frombuffer(row.grid, dtype=np.uint8)
-            .reshape(row.grid_height, row.grid_width)
-            .copy(),
-            label=row.dataset_label,
+            grid=np.frombuffer(grid, dtype=np.uint8).reshape(height, width).copy(),
+            label=label,
         )
-        for row in rows
+        for wafer_id, grid, height, width, label in session.execute(
+            statement.execution_options(yield_per=FETCH_BATCH)
+        )
     ]
 
 

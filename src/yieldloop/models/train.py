@@ -42,7 +42,6 @@ from yieldloop.models.embed import (
     WaferDataset,
     build_loader,
     compute_logits,
-    labeled_query,
     load_samples,
     select_device,
 )
@@ -162,10 +161,8 @@ def train_classifier(
     set_seed(resolved.seed)
     device = select_device()
 
-    train_samples = load_samples(
-        session, labeled_query(SplitName.TRAIN), limit=train_limit
-    )
-    val_samples = load_samples(session, labeled_query(SplitName.VAL))
+    train_samples = load_samples(session, SplitName.TRAIN, limit=train_limit)
+    val_samples = load_samples(session, SplitName.VAL)
     if not train_samples:
         raise ValueError(
             "no labeled training wafers found; run scripts/bootstrap_db.py first"
