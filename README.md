@@ -120,11 +120,17 @@ a faster run.
 python scripts/seed_from_real_labels.py --max-lots 5000     # ~15 s
 ```
 
-### 7. Fill the review queue
+### 7. Fill the review queues
 
 ```bash
 python scripts/run_active_round.py --strategy entropy_diversity --batch-size 64
+python scripts/route_predictions.py
 ```
+
+The first feeds the **label gate** — the most informative unlabeled wafers. The
+second is the production path: it routes existing predictions, auto-committing
+the confident ones and queuing the rest to the **confirm gate**, and escalating
+lots with several confident non-`none` predictions to the **escalation gate**.
 
 ### 8. Run the console
 
@@ -144,6 +150,37 @@ python -m scripts.export_case_study --skip-agent
 ```
 
 ---
+
+## The human loop
+
+The name is literal. Three gates, and the loop closes.
+
+**Gate 1 — Label.** Active learning picks the most informative unlabeled wafers.
+No prediction is shown at any confidence: the point is an independent human
+label, and showing a guess would turn it into agreement with the model.
+Fed by `run_active_round.py`.
+
+**Gate 2 — Confirm.** Predictions below the auto-commit threshold go to a human.
+Inside the uncertainty band the prediction is shown; below the confidence floor
+it is **withheld**, and the API omits the fields rather than the client hiding
+them. Fed by `route_predictions.py`, which also auto-commits everything above
+the threshold — expressed by producing no task at all.
+
+**Gate 3 — Escalation.** Lots with several confident non-`none` predictions get
+ranked root cause hypotheses with inline evidence. One odd wafer is noise; a
+pattern across a lot is a lot-level cause worth asking about.
+
+**And the loop closes.** Every decision is written back as training signal: a
+reviewer label overrides the dataset's own annotation for that wafer, a reviewer
+label on a previously-unlabeled wafer becomes a new training example, and a
+reviewed wafer leaves the unlabeled pool so the sampler stops offering it.
+Reviewer labels are scoped to their split, so a decision on a holdout wafer can
+never reach training. Each artifact records how many of its labels came from the
+console, so a human-corrected model is distinguishable from one trained only on
+WM811K.
+
+Decisions also record **what the reviewer could see**, which is what makes the
+anchoring effect measurable rather than assumed.
 
 ## The console
 
@@ -385,9 +422,9 @@ failure rate in the system.
 
 ## Testing
 
-**371 tests, 0 skipped, 0 failed** — including the ones that need the real
-dataset, a real Postgres, and the live API. No mocks, stubs, monkeypatching, or
-fake fixtures anywhere.
+**384 backend tests and 19 Playwright tests, 0 skipped, 0 failed** — including
+the ones that need the real dataset, a real Postgres, and the live API. No mocks,
+stubs, monkeypatching, or fake fixtures anywhere.
 
 - Database tests start a **real Postgres container**
 - Dataset tests read the **real 2 GB archive**

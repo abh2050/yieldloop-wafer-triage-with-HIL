@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
 
-from yieldloop.db.enums import DefectPattern, SplitName
-from yieldloop.db.models import Wafer
+from yieldloop.db.enums import DefectPattern, LabelSource, SplitName
+from yieldloop.db.models import Decision, Wafer
 from yieldloop.models.classifier import CLASS_ORDER, WaferCNN, label_index
 
 
@@ -30,6 +30,10 @@ class WaferSample:
     wafer_id: str
     grid: np.ndarray
     label: DefectPattern | None
+    #: Where the label came from. Carried into the artifact data hash, so a model
+    #: trained partly on reviewer labels is distinguishable from one trained only
+    #: on the dataset's own annotations.
+    source: LabelSource = LabelSource.DATASET
 
     @property
     def target(self) -> int:
@@ -51,12 +55,44 @@ def unlabeled_query(split: SplitName) -> Select[tuple[Wafer]]:
 FETCH_BATCH = 5_000
 
 
+def reviewer_labels(session: Session, split: SplitName) -> dict[str, DefectPattern]:
+    """The most recent reviewer label for each wafer in ``split``.
+
+    This is what closes the human loop. A decision captured by the console is
+    only training signal if the next round actually reads it, and reading it here
+    -- rather than in a separate ingest step -- means every consumer of
+    ``load_samples`` gets the corrected labels without having to know they exist.
+
+    Scoped to one split deliberately. A reviewer decision on a holdout wafer must
+    never reach training, and filtering at the query rather than trusting callers
+    is what makes that hold.
+
+    Later decisions win. A reviewer who revisits a wafer is correcting their
+    earlier judgement, not casting a second vote.
+    """
+    # Selects the wafer identifier through the join rather than resolving it
+    # from a separate map. The map version walked every wafer in the split --
+    # 567,614 rows to resolve a handful of decisions -- and halved bulk load
+    # throughput, which is on the critical path of every training run and round.
+    latest: dict[str, DefectPattern] = {}
+    for name, label in session.execute(
+        select(Wafer.wafer_id, Decision.chosen_label)
+        .join(Decision, Decision.wafer_id == Wafer.id)
+        .where(Wafer.split == split, Decision.chosen_label.is_not(None))
+        .order_by(Decision.created_at)
+    ).all():
+        if label is not None:
+            latest[name] = label
+    return latest
+
+
 def load_samples(
     session: Session,
     split: SplitName,
     *,
     labeled: bool = True,
     limit: int | None = None,
+    include_reviewer_labels: bool = True,
 ) -> list[WaferSample]:
     """Load wafers from one split, ordered deterministically by wafer id.
 
@@ -67,36 +103,84 @@ def load_samples(
     them in batches. Loading 120,000 labeled wafers as mapped objects spends
     minutes constructing instances and identity-map entries that are discarded
     immediately, when only the grid bytes and the label are ever read.
+
+    With ``include_reviewer_labels`` the human loop is closed: a reviewer label
+    overrides the dataset's own annotation for that wafer, and a reviewer label
+    on a previously-unlabeled wafer makes it a training example. The reviewer
+    wins because theirs is the more recent human judgement, made against the same
+    wafer map with the model's context available -- and because a console whose
+    corrections are recorded and then discarded is not a human loop at all.
+
+    Set it to False to reproduce a run from before any decisions existed.
     """
-    statement = (
-        select(
+    corrections = reviewer_labels(session, split) if include_reviewer_labels else {}
+
+    def _columns() -> Select[tuple[str, bytes, int, int, DefectPattern | None]]:
+        return select(
             Wafer.wafer_id,
             Wafer.grid,
             Wafer.grid_height,
             Wafer.grid_width,
             Wafer.dataset_label,
-        )
-        .where(
-            Wafer.split == split,
-            Wafer.dataset_label.is_not(None) if labeled else Wafer.dataset_label.is_(None),
-        )
-        .order_by(Wafer.wafer_id)
-    )
-    if limit is not None:
-        statement = statement.limit(limit)
+        ).where(Wafer.split == split)
 
-    return [
-        WaferSample(
-            wafer_id=wafer_id,
-            # Copied out of the read-only buffer: torch cannot take a
-            # non-writable array without warning, and the copy is cheap at 4 KiB.
-            grid=np.frombuffer(grid, dtype=np.uint8).reshape(height, width).copy(),
-            label=label,
+    # The label filter stays in the database. Dropping it to merge corrections in
+    # Python meant scanning the whole split -- 567,614 rows of 4 KiB grids to
+    # find 20,000 labeled ones -- and cost 15x throughput on a path that every
+    # training run and every active round depends on. Corrections are applied as
+    # a delta instead, so they cost in proportion to how many there are.
+    base = _columns().where(
+        Wafer.dataset_label.is_not(None) if labeled else Wafer.dataset_label.is_(None)
+    )
+
+    samples: list[WaferSample] = []
+    for wafer_id, grid, height, width, dataset_label in session.execute(
+        base.order_by(Wafer.wafer_id).execution_options(yield_per=FETCH_BATCH)
+    ):
+        reviewer = corrections.get(wafer_id)
+        if labeled:
+            label = reviewer if reviewer is not None else dataset_label
+            source = LabelSource.REVIEWER if reviewer is not None else LabelSource.DATASET
+        else:
+            # A reviewer-labeled wafer has left the unlabeled pool and must not
+            # be offered for labeling again.
+            if reviewer is not None:
+                continue
+            label, source = None, LabelSource.DATASET
+
+        samples.append(
+            WaferSample(
+                wafer_id=wafer_id,
+                # Copied out of the read-only buffer: torch cannot take a
+                # non-writable array without warning, and the copy is cheap.
+                grid=np.frombuffer(grid, dtype=np.uint8).reshape(height, width).copy(),
+                label=label,
+                source=source,
+            )
         )
-        for wafer_id, grid, height, width, label in session.execute(
-            statement.execution_options(yield_per=FETCH_BATCH)
-        )
-    ]
+
+    if labeled and corrections:
+        # Wafers the console labeled that the dataset never did. These are new
+        # training examples and the base query cannot see them.
+        seen = {sample.wafer_id for sample in samples}
+        newly = [wafer_id for wafer_id in corrections if wafer_id not in seen]
+        if newly:
+            for wafer_id, grid, height, width, _dataset_label in session.execute(
+                _columns().where(Wafer.wafer_id.in_(newly))
+            ):
+                samples.append(
+                    WaferSample(
+                        wafer_id=wafer_id,
+                        grid=np.frombuffer(grid, dtype=np.uint8).reshape(height, width).copy(),
+                        label=corrections[wafer_id],
+                        source=LabelSource.REVIEWER,
+                    )
+                )
+            # Re-sorted so the ordering -- and therefore the data hash -- does
+            # not depend on when a wafer happened to be labeled.
+            samples.sort(key=lambda sample: sample.wafer_id)
+
+    return samples[:limit] if limit is not None else samples
 
 
 class WaferDataset(Dataset[tuple[Tensor, Tensor]]):
@@ -123,6 +207,14 @@ class WaferDataset(Dataset[tuple[Tensor, Tensor]]):
     def label_pairs(self) -> list[tuple[str, DefectPattern | None]]:
         """The ordered pairs the artifact data hash is computed over."""
         return [(sample.wafer_id, sample.label) for sample in self._samples]
+
+    def reviewer_label_count(self) -> int:
+        """How many labels in this set came from the console rather than WM811K.
+
+        Recorded on the artifact so a model trained partly on human corrections
+        is distinguishable from one trained only on the dataset.
+        """
+        return sum(1 for s in self._samples if s.source is LabelSource.REVIEWER)
 
     def class_counts(self) -> dict[DefectPattern, int]:
         counts = dict.fromkeys(CLASS_ORDER, 0)

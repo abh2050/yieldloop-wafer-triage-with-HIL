@@ -36,14 +36,29 @@ test("predictions below the floor are withheld, not merely hidden", async ({ req
 
 test("withheld rows say so explicitly", async ({ page }) => {
   await page.goto("/triage");
-  const rows = page.getByTestId("triage-row");
-  test.skip((await rows.count()) === 0, "triage queue is empty");
 
-  const withheld = page.getByTestId("prediction-withheld");
-  if ((await withheld.count()) > 0) {
-    // Explicit rather than blank: the reviewer should know the model has an
-    // opinion being deliberately withheld, not assume it had none.
-    await expect(withheld.first()).toContainText("withheld");
+  // Wait for the fetch to resolve before counting. Counting immediately after
+  // navigation returns zero while the request is still in flight, which made
+  // this skip itself as "queue is empty" even when the queue was full -- a skip
+  // that looks like a pass and hides the assertion entirely.
+  const rows = page.getByTestId("triage-row");
+  const empty = page.getByTestId("empty-triage");
+  await expect(rows.first().or(empty)).toBeVisible({ timeout: 10_000 });
+
+  test.skip(await empty.isVisible(), "triage queue is empty; run route_predictions.py");
+
+  const total = await rows.count();
+  expect(total).toBeGreaterThan(0);
+
+  // Every row either shows a prediction or says it is withheld. A row that did
+  // neither would leave the reviewer to assume the model had no opinion, when in
+  // fact it has one that policy is deliberately holding back.
+  const shown = await page.getByTestId("prediction-shown").count();
+  const withheld = await page.getByTestId("prediction-withheld").count();
+  expect(shown + withheld).toBe(total);
+
+  if (withheld > 0) {
+    await expect(page.getByTestId("prediction-withheld").first()).toContainText("withheld");
   }
 });
 

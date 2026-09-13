@@ -18,7 +18,7 @@ from uuid import UUID
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
-from yieldloop.db.enums import RoutingBand, TaskGate, TaskState
+from yieldloop.db.enums import DefectPattern, RoutingBand, TaskGate, TaskState
 from yieldloop.db.models import Prediction, ReviewTask, Wafer
 from yieldloop.guardrails.thresholds import RoutingBands, classify
 
@@ -194,3 +194,166 @@ def claim_next(
     task.assigned_at = func.now()
     session.flush()
     return task
+
+
+# ---------------------------------------------------------------------------
+# Gate producers
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class RoutingOutcome:
+    """What a routing pass did with a batch of predictions."""
+
+    considered: int
+    auto_committed: int
+    queued_for_confirmation: int
+    already_queued: int
+
+    @property
+    def automation_rate(self) -> float:
+        return self.auto_committed / self.considered if self.considered else 0.0
+
+
+def enqueue_confirmations(
+    session: Session,
+    *,
+    bands: RoutingBands,
+    limit: int = 200,
+    artifact_id: UUID | None = None,
+) -> RoutingOutcome:
+    """Create confirm-gate tasks for predictions that need a human.
+
+    This is the producer for the second gate. Predictions at or above the
+    auto-commit threshold are left alone -- that is what auto-commit means -- and
+    everything below it becomes a review task whose ``show_prediction`` follows
+    the band, so a prediction below the floor is withheld from the reviewer
+    without the console having to decide that.
+
+    Idempotent. A wafer already waiting at this gate is skipped rather than
+    queued twice, since two reviewers confirming the same prediction is
+    duplicated effort rather than a second opinion.
+    """
+    statement = (
+        select(Prediction, Wafer)
+        .join(Wafer, Prediction.wafer_id == Wafer.id)
+        .order_by(Prediction.entropy.desc())
+        .limit(limit)
+    )
+    if artifact_id is not None:
+        statement = statement.where(Prediction.artifact_id == artifact_id)
+
+    considered = 0
+    committed = 0
+    queued = 0
+    skipped = 0
+
+    for prediction, wafer in session.execute(statement).all():
+        considered += 1
+        decision = classify(prediction.confidence, bands)
+        if decision.is_auto_committed:
+            committed += 1
+            continue
+
+        existing = session.execute(
+            select(ReviewTask.id).where(
+                ReviewTask.wafer_id == wafer.id,
+                ReviewTask.gate == TaskGate.CONFIRM,
+                ReviewTask.state.in_((TaskState.PENDING, TaskState.ASSIGNED)),
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            skipped += 1
+            continue
+
+        create_task(
+            session,
+            wafer=wafer,
+            gate=TaskGate.CONFIRM,
+            prediction=prediction,
+            bands=bands,
+            # Most uncertain first: the reviewer's time is worth most where the
+            # model is least sure.
+            priority=prediction.entropy,
+        )
+        queued += 1
+
+    session.flush()
+    return RoutingOutcome(
+        considered=considered,
+        auto_committed=committed,
+        queued_for_confirmation=queued,
+        already_queued=skipped,
+    )
+
+
+def enqueue_escalations(
+    session: Session,
+    *,
+    bands: RoutingBands,
+    limit: int = 25,
+    min_wafers: int = 2,
+) -> int:
+    """Create escalation-gate tasks for lots that look like an excursion.
+
+    The producer for the third gate. A lot is escalated when several of its
+    wafers carry a non-``none`` prediction the model is confident enough to
+    stand behind -- one odd wafer is noise, a pattern across a lot is a lot-level
+    cause worth asking about.
+
+    Returns the number of lots escalated. The task is attached to the lot's
+    most-failed wafer, which is the one an engineer opens first.
+    """
+    counts = (
+        select(
+            Wafer.lot_id.label("lot_id"),
+            func.count().label("flagged"),
+            func.max(Prediction.confidence).label("top_confidence"),
+        )
+        .select_from(Prediction)
+        .join(Wafer, Prediction.wafer_id == Wafer.id)
+        .where(
+            Prediction.predicted_label != DefectPattern.NONE,
+            Prediction.confidence >= bands.confidence_floor,
+        )
+        .group_by(Wafer.lot_id)
+        .having(func.count() >= min_wafers)
+        .order_by(func.count().desc())
+        .limit(limit)
+        .subquery()
+    )
+
+    escalated = 0
+    for row in session.execute(select(counts)).all():
+        wafer = session.execute(
+            select(Wafer).where(Wafer.lot_id == row.lot_id).order_by(Wafer.die_fail.desc()).limit(1)
+        ).scalar_one_or_none()
+        if wafer is None:
+            continue
+
+        existing = session.execute(
+            select(ReviewTask.id).where(
+                ReviewTask.wafer_id == wafer.id,
+                ReviewTask.gate == TaskGate.ESCALATION,
+                ReviewTask.state.in_((TaskState.PENDING, TaskState.ASSIGNED)),
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            continue
+
+        prediction = session.execute(
+            select(Prediction).where(Prediction.wafer_id == wafer.id).limit(1)
+        ).scalar_one_or_none()
+
+        create_task(
+            session,
+            wafer=wafer,
+            gate=TaskGate.ESCALATION,
+            prediction=prediction,
+            bands=bands,
+            priority=float(row.flagged),
+        )
+        escalated += 1
+
+    session.flush()
+    return escalated

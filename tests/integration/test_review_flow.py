@@ -11,7 +11,7 @@ import uuid
 from datetime import date
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from yieldloop.config import Settings
@@ -54,19 +54,14 @@ FILTER = InputFilter.from_settings(Settings())
 
 @pytest.fixture(autouse=True)
 def reason_codes(db_session: Session) -> None:
-    """The controlled vocabulary, as the migration seeds it in a real install."""
-    for spec in REASON_CODES:
-        db_session.add(
-            ReasonCode(
-                code=spec.code,
-                label=spec.label,
-                description=spec.description,
-                applies_to=[a.value for a in spec.applies_to],
-                applies_to_gates=[g.value for g in spec.applies_to_gates],
-                sort_order=spec.sort_order,
-            )
-        )
-    db_session.flush()
+    """Assert the vocabulary is present rather than creating it.
+
+    Seeded by a migration. A fixture that inserted it would pass even if that
+    migration were deleted, which is how the missing seed went unnoticed until
+    the browser hit a foreign key violation.
+    """
+    count = db_session.execute(select(func.count()).select_from(ReasonCode)).scalar_one()
+    assert int(count) == len(REASON_CODES), "reason_codes is not seeded; run alembic upgrade head"
 
 
 @pytest.fixture

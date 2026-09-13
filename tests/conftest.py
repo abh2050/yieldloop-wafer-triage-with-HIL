@@ -61,8 +61,14 @@ _RESETTABLE_TABLES = (
     "breaker_events",
     "threshold_changes",
     "drift_snapshots",
-    "reason_codes",
 )
+
+#: reason_codes is deliberately absent: it is reference data seeded by a
+#: migration, not per-test state. Truncating it between tests deleted the
+#: vocabulary the schema's foreign key depends on, which then forced every suite
+#: that writes a decision to re-seed it in a fixture -- and a fixture that
+#: re-creates production reference data is exactly what hid the missing seed
+#: migration in the first place.
 
 
 @pytest.fixture(scope="session")

@@ -273,6 +273,11 @@ def train_classifier(
         "val_size": len(val_set),
         "device": str(device),
         "temperature_at_bound": calibration.at_bound,
+        # How much of this model came from the console rather than the dataset.
+        # Recorded so a human-corrected artifact is distinguishable from one
+        # trained only on WM811K's own annotations, and so the effect of the
+        # human loop is traceable rather than assumed.
+        "reviewer_label_count": train_set.reviewer_label_count(),
     }
 
     # A temperature pinned at a bound is a degenerate fit, not a calibrated
