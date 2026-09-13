@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>yieldloop — diagrams</title>
+    <style>
+      :root {
+        --bg: #f6f7f9;
+        --panel: #ffffff;
+        --ink: #12151c;
+        --muted: #5b6475;
+        --line: #dfe3ea;
+        --accent: #1d6fd0;
+        --accent-soft: #eaf2fd;
+        --rule: #c9d2e0;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1016;
+          --panel: #151a23;
+          --ink: #e8ecf3;
+          --muted: #99a3b5;
+          --line: #232b38;
+          --accent: #63a4ff;
+          --accent-soft: #16243a;
+          --rule: #2b3444;
+        }
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      code, .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      /* ---- sticky nav ---- */
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 18px;
+        padding: 14px 28px;
+        background: color-mix(in srgb, var(--bg) 88%, transparent);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--line);
+      }
+      nav .brand {
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-right: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        color: var(--accent);
+      }
+      nav a {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 14px;
+        padding: 4px 0;
+        border-bottom: 2px solid transparent;
+      }
+      nav a:hover { color: var(--ink); border-bottom-color: var(--accent); }
+      nav .spacer { flex: 1; }
+      nav .repo { font-size: 13px; }
+
+      /* ---- layout ---- */
+      main { max-width: 1180px; margin: 0 auto; padding: 44px 28px 96px; }
+      header.page { margin-bottom: 46px; }
+      header.page h1 {
+        font-size: clamp(28px, 4vw, 40px);
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+        margin: 0 0 14px;
+      }
+      header.page p { color: var(--muted); max-width: 68ch; margin: 0 0 10px; font-size: 17px; }
+
+      section { margin: 0 0 64px; scroll-margin-top: 84px; }
+      section h2 {
+        font-size: 22px;
+        letter-spacing: -0.015em;
+        margin: 0 0 6px;
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      section h2 .num {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 13px;
+        color: var(--accent);
+        background: var(--accent-soft);
+        border-radius: 5px;
+        padding: 2px 7px;
+      }
+      section .lede { color: var(--muted); max-width: 72ch; margin: 0 0 18px; }
+
+      figure {
+        margin: 0;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      figure img {
+        display: block;
+        width: 100%;
+        height: auto;
+        background: #fff;
+      }
+      figcaption {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 16px;
+        padding: 12px 16px;
+        border-top: 1px solid var(--line);
+        font-size: 13.5px;
+        color: var(--muted);
+      }
+      figcaption a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      figcaption a:hover { text-decoration: underline; }
+      figcaption .sep { color: var(--rule); }
+
+      .note {
+        border-left: 3px solid var(--accent);
+        background: var(--accent-soft);
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        margin: 18px 0 0;
+        font-size: 14.5px;
+      }
+      .note strong { color: var(--ink); }
+
+      footer {
+        border-top: 1px solid var(--line);
+        margin-top: 20px;
+        padding-top: 22px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      footer a { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <span class="brand">yieldloop</span>
+      <a href="#architecture">Architecture</a>
+      <a href="#routing">Routing bands</a>
+      <a href="#human-loop">Human loop</a>
+      <a href="#guarded-agent">Guarded agent</a>
+      <span class="spacer"></span>
+      <a class="repo" href="../../README.md">README</a>
+    </nav>
+
+    <main>
+      <header class="page">
+        <h1>yieldloop — system diagrams</h1>
+        <p>
+          A wafer map defect triage console with a human decision loop, active
+          learning, and a root cause agent that cannot cite evidence it was not
+          given.
+        </p>
+        <p>
+          Every figure on this page is measured from the running system, not
+          estimated. Each diagram below is also available as an interactive page
+          with light and dark themes, pan and zoom, search, and relationship
+          tracing.
+        </p>
+      </header>
+
+      <section id="architecture">
+        <h2><span class="num">01</span> Architecture</h2>
+        <p class="lede">
+          How the pieces fit. Three things this shows that a file listing cannot:
+          the classifier and the language model are separate paths and no wafer
+          map ever reaches OpenAI; the guardrails sit between retrieval and the
+          model on both sides, so there is no edge into it that skips them; and
+          the arrow back from the console into Postgres is the loop closing,
+          because those decisions are what the next training round reads.
+        </p>
+        <figure>
+          <a href="yieldloop-architecture.html">
+            <img src="yieldloop-architecture.png" alt="yieldloop architecture: WM811K ingest through Postgres to the classifier, sampling and retrieval, the guardrails wrapping the OpenAI call, and decisions feeding back from the review console" />
+          </a>
+          <figcaption>
+            <a href="yieldloop-architecture.html">Open interactive</a>
+            <span class="sep">·</span>
+            <a href="yieldloop-architecture.json">spec</a>
+            <span class="sep">·</span>
+            <span>811,457 wafers · 78.7% unlabeled · lot-keyed splits</span>
+          </figcaption>
+        </figure>
+      </section>
+
+      <section id="routing">
+        <h2><span class="num">02</span> Routing bands</h2>
+        <p class="lede">
+          What automation costs, and who is allowed to see the model's guess.
+          Above the auto-commit threshold the system commits without a human.
+          Inside the uncertainty band a reviewer sees the prediction. Below the
+          confidence floor the prediction is withheld — the API omits the field
+          rather than the client hiding it — because a weak guess anchors a
+          reviewer rather than helping them, and agreement bought that way is
+          the model's own error laundered back in as a human label.
+        </p>
+        <figure>
+          <a href="yieldloop-routing-bands.html">
+            <img src="yieldloop-routing-bands.png" alt="Routing bands: at or above 0.95 auto-commit covering 87.75% of wafers with 0.44% escaped errors, 0.55 to 0.95 shown to a reviewer, below 0.55 withheld from the reviewer" />
+          </a>
+          <figcaption>
+            <a href="yieldloop-routing-bands.html">Open interactive</a>
+            <span class="sep">·</span>
+            <a href="yieldloop-routing-bands.json">spec</a>
+            <span class="sep">·</span>
+            <span>87.75% automated · 0.44% escaped errors</span>
+          </figcaption>
+        </figure>
+        <p class="note">
+          <strong>Both thresholds are configuration, not constants.</strong> That
+          is what lets the evaluation harness sweep them to draw the tradeoff
+          curve, and every change is recorded with who made it and why.
+        </p>
+      </section>
+
+      <section id="human-loop">
+        <h2><span class="num">03</span> The human loop, closing</h2>
+        <p class="lede">
+          The name is literal. Active learning chooses which unlabeled wafers are
+          worth a human's time, the reviewer answers in one keystroke with the
+          model's guess hidden, and the answer returns as training signal: a
+          reviewer label overrides the dataset's own, a newly labeled wafer
+          becomes a training example, and the wafer leaves the unlabeled pool.
+          Decisions are scoped to their split, so a holdout decision can never
+          leak into training.
+        </p>
+        <figure>
+          <a href="yieldloop-human-loop.html">
+            <img src="yieldloop-human-loop.png" alt="The human loop: sampling selects a batch, the reviewer labels it without seeing the prediction, decisions are stored and audited, and the next training round reads them while override rate tunes the confidence floor" />
+          </a>
+          <figcaption>
+            <a href="yieldloop-human-loop.html">Open interactive</a>
+            <span class="sep">·</span>
+            <a href="yieldloop-human-loop.json">spec</a>
+            <span class="sep">·</span>
+            <span>8,000 chosen labels beat 16,000 random</span>
+          </figcaption>
+        </figure>
+        <p class="note">
+          <strong>There are two return paths, not one.</strong> Corrections
+          retrain the model. Separately, because every decision records what the
+          reviewer could see, the override rate splits two ways — and if people
+          disagree far more when the prediction is hidden, the visible
+          predictions are buying agreement rather than earning it, and the
+          confidence floor should rise.
+        </p>
+      </section>
+
+      <section id="guarded-agent">
+        <h2><span class="num">04</span> A guarded hypothesis request</h2>
+        <p class="lede">
+          The ordering is the design. Inputs are bounded and spend is checked
+          before a token is spent. Untrusted text is isolated as data while the
+          prompt is built, so it never reaches the instruction layer. Parsing and
+          grounding both run before anything is persisted, so an ungrounded claim
+          never becomes a database row. An empty evidence bundle abstains without
+          calling the model at all, because paying for a call that cannot
+          possibly be grounded is pure waste.
+        </p>
+        <figure>
+          <a href="yieldloop-guarded-agent.html">
+            <img src="yieldloop-guarded-agent.png" alt="A guarded hypothesis request: bound inputs, assemble the evidence bundle, abstain on an empty bundle, isolate untrusted text, call the model under a strict schema, parse and ground before persisting, and audit on every path" />
+          </a>
+          <figcaption>
+            <a href="yieldloop-guarded-agent.html">Open interactive</a>
+            <span class="sep">·</span>
+            <a href="yieldloop-guarded-agent.json">spec</a>
+            <span class="sep">·</span>
+            <span>100% grounding rate · 0 fabricated citations</span>
+          </figcaption>
+        </figure>
+        <p class="note">
+          <strong>Abstention is an answer, not an error.</strong> If no claim
+          survives grounding, the console renders "insufficient evidence" with
+          the reason and the gaps named. A blank panel reads as a broken feature
+          and trains reviewers to ignore the screen.
+        </p>
+      </section>
+
+      <footer>
+        <p>
+          Diagrams authored as typed specifications and rendered to standalone
+          HTML; each passes nine artifact checks with zero composition errors,
+          and each was checked in a real browser for containment and readability
+          at four desktop viewports.
+        </p>
+        <p>
+          Data comes from the real
+          <a href="https://www.kaggle.com/datasets/qingyi/wm811k-wafer-map">WM811K wafer map dataset</a>,
+          which is not vendored in this repository and carries its own terms.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>
