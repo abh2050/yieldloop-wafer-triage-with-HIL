@@ -1,10 +1,28 @@
 """Read the real WM811K archive from local disk.
 
-The archive is a pickled pandas DataFrame. Several of its columns are not scalar:
-``failureType`` and ``trainTestLabel`` are stored per row as small numpy arrays,
-empty where the wafer is unlabeled, and ``lotName`` and ``waferIndex`` may arrive
-as numpy scalars. That shape is a property of the real file rather than something
-to paper over, so unwrapping is explicit and anything unexpected raises.
+The archive is a pickled pandas DataFrame, and three properties of the real file
+shape this module.
+
+**It is a Python 2 pickle written with pandas 0.x (2019).** The module paths it
+references (``pandas.indexes.base``, ``pandas.indexes.range``) no longer exist,
+and its strings are latin1. Modern pandas cannot read it, so
+:class:`_LegacyUnpickler` maps the old module paths onto their current homes.
+Converting the file once and committing the result is the obvious alternative and
+is rejected deliberately: it would put a derived artifact between the published
+dataset and the metrics, and the sha256 in the config would then verify our copy
+rather than the real thing.
+
+**Its columns are not all scalar.** ``failureType`` and the train/test label are
+stored per row as small numpy arrays -- ``(1, 1)`` when present and ``(0, 0)``
+when the wafer is unlabeled, which is the majority of the file. ``lotName`` and
+``waferIndex`` arrive as numpy scalars. Unwrapping is explicit and anything
+unexpected raises.
+
+**It ships a typo.** The train/test column is spelled ``trianTestLabel`` in the
+real archive. yieldloop reads that name and exposes it under the corrected one
+rather than silently tolerating either, so a future file that fixes the spelling
+surfaces as a contract failure to be looked at rather than as a column that
+quietly starts arriving empty.
 
 Nothing here falls back to generated data. If the file is absent, unverified, or
 does not have the documented columns, loading fails.
@@ -12,10 +30,11 @@ does not have the documented columns, loading fails.
 
 from __future__ import annotations
 
+import pickle
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final
+from typing import IO, Any, Final
 
 import numpy as np
 import pandas as pd
@@ -34,10 +53,51 @@ from yieldloop.logging import get_logger
 
 logger = get_logger(__name__)
 
-#: Columns the data contract requires to be present in LSWMD.pkl.
+#: The train/test column as the real archive spells it. The misspelling is in
+#: the published dataset, not here. See the module docstring.
+SOURCE_SPLIT_COLUMN: Final[str] = "trianTestLabel"
+
+#: Columns the data contract requires to be present in LSWMD.pkl, exactly as the
+#: real file spells them.
 REQUIRED_COLUMNS: Final[frozenset[str]] = frozenset(
-    {"waferMap", "dieSize", "lotName", "waferIndex", "trainTestLabel", "failureType"}
+    {"waferMap", "dieSize", "lotName", "waferIndex", SOURCE_SPLIT_COLUMN, "failureType"}
 )
+
+#: Module paths that moved between the pandas version that wrote the archive and
+#: the one that reads it. Mapping them is what makes the original file loadable
+#: without converting it first.
+_LEGACY_MODULES: Final[dict[str, str]] = {
+    "pandas.indexes.base": "pandas.core.indexes.base",
+    "pandas.indexes.range": "pandas.core.indexes.range",
+    "pandas.indexes.numeric": "pandas.core.indexes.base",
+    "pandas.core.index": "pandas.core.indexes.base",
+    "numpy.core.multiarray": "numpy._core.multiarray",
+    "numpy.core.numeric": "numpy._core.numeric",
+}
+
+
+class _LegacyUnpickler(pickle.Unpickler):
+    """Unpickler that resolves the pandas 0.x module layout.
+
+    Only module *paths* are remapped. No class is substituted for a different
+    one, so the objects reconstructed here are the ones the file describes.
+    """
+
+    def find_class(self, module: str, name: str) -> Any:
+        resolved = _LEGACY_MODULES.get(module, module)
+        try:
+            return super().find_class(resolved, name)
+        except (ModuleNotFoundError, AttributeError) as exc:
+            raise DatasetContractError(
+                f"LSWMD.pkl references {module}.{name}, which does not resolve under the "
+                f"installed pandas/numpy (tried {resolved}.{name}). See the compatibility "
+                "notes in yieldloop.ingest.loader."
+            ) from exc
+
+
+def load_legacy_pickle(handle: IO[bytes]) -> Any:
+    """Unpickle the archive, tolerating its Python 2 / pandas 0.x provenance."""
+    return _LegacyUnpickler(handle, encoding="latin1").load()
 
 
 class DatasetContractError(RuntimeError):
@@ -104,7 +164,9 @@ def _coerce_split_label(value: Any) -> str | None:
     if raw is None:
         return None
     if not isinstance(raw, str):
-        raise DatasetContractError(f"trainTestLabel must be a string; got {type(raw).__name__}")
+        raise DatasetContractError(
+            f"{SOURCE_SPLIT_COLUMN} must be a string; got {type(raw).__name__}"
+        )
     return raw.strip()
 
 
@@ -123,7 +185,8 @@ def read_frame(path: Path | None = None, settings: Settings | None = None) -> pd
         )
 
     logger.info("dataset_load_start", path=str(target))
-    frame = pd.read_pickle(target)
+    with target.open("rb") as handle:
+        frame = load_legacy_pickle(handle)
     if not isinstance(frame, pd.DataFrame):
         raise DatasetContractError(
             f"{target} unpickled to {type(frame).__name__}, expected a pandas DataFrame"
@@ -182,7 +245,7 @@ def iter_records(
             raw_map=raw_map,
             statistics=statistics,
             dataset_label=_coerce_label(row["failureType"]),
-            dataset_split_label=_coerce_split_label(row["trainTestLabel"]),
+            dataset_split_label=_coerce_split_label(row[SOURCE_SPLIT_COLUMN]),
         )
 
     if skipped:

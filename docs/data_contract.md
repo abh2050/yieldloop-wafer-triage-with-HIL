@@ -13,23 +13,69 @@ column with a database check constraint pinning it to true.
 
 ## 1. Source
 
-| Property | Value |
+| Property | Value (measured from the real archive) |
 | --- | --- |
-| Dataset | WM811K (MIR-WM811K), real wafer maps from 46,393 lots |
-| File | `LSWMD.pkl`, a pickled pandas DataFrame |
+| Dataset | WM811K (MIR-WM811K) |
+| File | `LSWMD.pkl`, a pickled pandas DataFrame, 2,095,505,977 bytes |
+| sha256 | `1d04fccb3dd3176b276878b926b20fead7e077c5751e4d353ea9741a5e7b5c65` |
+| Wafers | 811,457 |
+| Lots | 46,293 |
+| Human-labeled wafers | 172,950 (21.3%) |
+| Unlabeled wafers | 638,507 (78.7%) |
+| Wafer map shapes | not fixed; 136 distinct shapes in a 20,000-row sample |
 | Acquisition | `scripts/fetch_dataset.py` via the Kaggle API |
-| Integrity | sha256 recorded on first fetch into `YIELDLOOP_WM811K_SHA256`, verified on every subsequent load |
+| Integrity | sha256 verified on every load |
+
+The label distribution is the reason this project is shaped around active
+learning rather than around a supervised baseline: **78.7% of the dataset carries
+no human label at all**, and the labeled remainder is dominated by `none`.
+
+| `failureType` | Count | Share of labeled |
+| --- | --- | --- |
+| `none` | 147,431 | 85.2% |
+| `Edge-Ring` | 9,680 | 5.6% |
+| `Edge-Loc` | 5,189 | 3.0% |
+| `Center` | 4,294 | 2.5% |
+| `Loc` | 3,593 | 2.1% |
+| `Scratch` | 1,193 | 0.7% |
+| `Random` | 866 | 0.5% |
+| `Donut` | 555 | 0.3% |
+| `Near-full` | 149 | 0.1% |
+
+`Near-full` is 0.09% of labeled wafers. Per-class recall is therefore reported
+separately in the eval harness rather than being folded into an accuracy figure
+that a majority-class predictor would score 85% on.
+
+### Two properties of the real file
+
+**It is a Python 2 pickle written with pandas 0.x (2019).** It references module
+paths that no longer exist (`pandas.indexes.base`, `pandas.indexes.range`) and
+its strings are latin1. `yieldloop.ingest.loader` maps the old module paths onto
+their current homes at unpickling time. Converting the file once and committing
+the result is rejected deliberately: it would place a derived artifact between
+the published dataset and every metric, and the pinned sha256 would then verify
+our copy rather than the real thing.
+
+**The train/test column is misspelled in the dataset**, as `trianTestLabel`. The
+loader reads that exact name and exposes it under the corrected one. It does not
+accept either spelling, so a future release that fixes the typo surfaces as a
+contract failure to be looked at rather than as a column that quietly starts
+arriving empty.
 
 ### Real fields consumed
 
 | Source column | Type | Where it lands |
 | --- | --- | --- |
-| `waferMap` | 2-D array, values `{0,1,2}` | `wafers.grid` after normalization; `wafers.raw_height/raw_width` record the original shape |
-| `dieSize` | float | `wafers.die_size` |
-| `lotName` | string | `lots.lot_name` |
-| `waferIndex` | float | `wafers.wafer_index` |
-| `trainTestLabel` | string or empty | `wafers.dataset_split_label`, preserved but **not** used for partitioning |
-| `failureType` | string or empty | `wafers.dataset_label` via `DefectPattern.from_dataset_label` |
+| `waferMap` | 2-D `uint8` array, values `{0,1,2}` | `wafers.grid` after normalization; `wafers.raw_height/raw_width` record the original shape |
+| `dieSize` | float (numpy scalar) | `wafers.die_size` |
+| `lotName` | string (numpy scalar) | `lots.lot_name` |
+| `waferIndex` | float (numpy scalar) | `wafers.wafer_index` |
+| `trianTestLabel` | `(1,1)` array of string, or `(0,0)` when absent | `wafers.dataset_split_label`, preserved but **not** used for partitioning |
+| `failureType` | `(1,1)` array of string, or `(0,0)` when absent | `wafers.dataset_label` via `DefectPattern.from_dataset_label` |
+
+Optional fields are stored per row as small numpy arrays: shape `(1, 1)` when a
+value is present and `(0, 0)` when it is absent. An empty array means *unlabeled*
+and is read as `None`, never as a label.
 
 The `waferMap` encoding is preserved exactly: `0` is outside the wafer, `1` is a
 passing die, `2` is a failing die. Normalization never reassigns these values.
@@ -89,7 +135,14 @@ boundaries.
 
 **Inputs:** the raw `waferMap`.
 
-`die_total` counts entries `!= 0`; `die_fail` counts entries `== 2`. Failure rate
+`die_total` counts entries `!= 0`; `die_fail` counts entries `== 2`.
+
+This rule is independently verifiable against the dataset itself: WM811K's
+`dieSize` field is the die count for the wafer, and `die_total` computed from the
+map reproduces it **exactly on 60,000 of 60,000 sampled wafers**. The check runs
+as a test (`test_ingest_contract.py`), so a regression in the counting or in
+normalization ordering breaks the build rather than silently shifting every
+failure rate in the system. Failure rate
 is `die_fail / die_total`. Radial and edge concentration statistics presented to
 the agent are computed from the raw map by binning die by normalized radius from
 the wafer centroid. These are measured, not modelled.
