@@ -54,15 +54,26 @@ class AgreementReport:
         return self.blind_overrides / self.blind_decisions if self.blind_decisions else 0.0
 
     @property
-    def anchoring_delta(self) -> float:
-        """Blind override rate minus shown override rate.
+    def anchoring_measurable(self) -> bool:
+        """True only when both regimes have decisions to compare.
+
+        The distinction matters as much as the number. With no shown decisions
+        the delta is 0.0, which reads as "no anchoring effect" when it actually
+        means "not measured" -- and those call for opposite responses: one says
+        the floor is fine, the other says nothing at all.
+        """
+        return self.shown_decisions > 0 and self.blind_decisions > 0
+
+    @property
+    def anchoring_delta(self) -> float | None:
+        """Blind override rate minus shown override rate, or None.
 
         Positive means reviewers disagree more when the prediction is hidden,
-        which is the signature of anchoring. Only meaningful when both
-        populations are non-empty.
+        which is the signature of anchoring. Returns None rather than zero when
+        either regime is empty; see :attr:`anchoring_measurable`.
         """
-        if not self.shown_decisions or not self.blind_decisions:
-            return 0.0
+        if not self.anchoring_measurable:
+            return None
         return self.override_rate_blind - self.override_rate_shown
 
     @property
@@ -77,6 +88,7 @@ class AgreementReport:
             "override_rate_shown": self.override_rate_shown,
             "override_rate_blind": self.override_rate_blind,
             "anchoring_delta": self.anchoring_delta,
+            "anchoring_measurable": self.anchoring_measurable,
             "shown_decisions": self.shown_decisions,
             "blind_decisions": self.blind_decisions,
             "median_decision_ms": self.median_decision_ms,

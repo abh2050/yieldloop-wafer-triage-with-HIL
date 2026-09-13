@@ -160,12 +160,11 @@ def main(argv: list[str] | None = None) -> int:
     target = settings.wm811k_path
 
     try:
-        if args.verify_only:
-            pass
-        elif args.force or not target.is_file():
-            download_archive(settings, data_dir)
-        else:
-            logger.info("dataset_present", path=str(target))
+        if not args.verify_only:
+            if args.force or not target.is_file():
+                download_archive(settings, data_dir)
+            else:
+                logger.info("dataset_present", path=str(target))
         digest = verify(settings, target)
     except DatasetFetchError as exc:
         print(f"\n{exc}\n", file=sys.stderr)

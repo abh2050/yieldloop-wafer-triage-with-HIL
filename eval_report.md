@@ -4,7 +4,7 @@ All metrics are computed from the real WM811K dataset and from decisions real
 reviewers made in this console. There is no synthetic ground truth anywhere in 
 this report.
 
-**Gate: PASS** · 22.0s
+**Gate: PASS** · 6.5s
 
 ## Classifier
 
@@ -94,30 +94,30 @@ them, which is the column a fab actually cares about.
 | Escaped error rate | 0.44% |
 
 
-## Root cause agent
+## Reviewer agreement
 
-Grounding rate is the fraction of proposed hypotheses whose citations all 
-resolved to evidence in the context bundle. A rate below 100% does not mean a 
-reviewer saw something wrong -- the gate dropped those claims -- it means the 
-model attempted a fabrication.
+Override rate alone is ambiguous: a low rate can mean the model is good, or 
+that reviewers are deferring to it. Splitting by whether the prediction was 
+visible separates the two, which is why every decision records what the 
+reviewer could see.
 
-Abstention rate is **not** minimized. Abstaining on a thin bundle is correct; a 
-rate of zero against sparse evidence would mean the model is inventing support.
+A large positive anchoring delta -- reviewers disagreeing far more often when 
+they could not see the prediction -- means visible predictions are buying 
+agreement rather than earning it, and the confidence floor should rise.
 
 | Metric | Value |
 | --- | --- |
-| Calls | 8 |
-| Hypotheses proposed | 2 |
-| Hypotheses grounded | 2 |
-| Grounding rate | 100.00% |
-| Abstention rate | 87.50% |
-| Fabricated citations | 0 |
-| Median latency | 1554 ms |
-| p95 latency | 4156 ms |
-| Cost | $0.0521 |
+| Decisions captured | 13 |
+| With a model prediction to compare | 13 |
+| Override rate (all) | 84.62% |
+| Override rate (prediction shown) | 0.00% |
+| Override rate (prediction withheld) | 84.62% |
+| Anchoring delta | +0.00 pp |
+| Median decision time | 0.01 s |
+| p95 decision time | 0.02 s |
 
 
-> No reviewer resolutions exist for the evaluated lots, so hypothesis precision cannot be measured. This is a data gap, not a score of zero.
+> Fewer than 30 decisions. These rates are reported for completeness but are not yet a measurement, and the eval gate does not hold them to a floor.
 
 ## Guardrails
 

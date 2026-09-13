@@ -25,7 +25,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from eval.report import write_report
-from eval.suites import agent_suite, classifier_suite, guardrail_suite
+from eval.suites import agent_suite, classifier_suite, guardrail_suite, review_suite
 from yieldloop.config import Settings, get_settings
 from yieldloop.db.session import build_engine
 from yieldloop.logging import configure_logging, get_logger
@@ -123,6 +123,13 @@ def extract_metrics(results: dict[str, Any]) -> dict[str, float]:
         if agent.get("precision_at_3") is not None:
             flat["agent.precision_at_3"] = float(agent["precision_at_3"])
 
+    review = results.get("review")
+    if review and not review.get("thin_sample", True):
+        flat["review.override_rate"] = float(review["override_rate"])
+        flat["review.median_decision_seconds"] = float(review["median_decision_seconds"])
+        if review.get("anchoring_measurable"):
+            flat["review.anchoring_delta"] = float(review["anchoring_delta"])
+
     guardrail = results.get("guardrail")
     if guardrail:
         # A property, not a rate: any failure is a regression.
@@ -160,7 +167,7 @@ def run(
         guardrail = guardrail_suite.run()
         outcome.results["guardrail"] = guardrail.as_dict()
 
-    needs_database = bool({"classifier", "agent"} & suites)
+    needs_database = bool({"classifier", "agent", "review"} & suites)
     if needs_database:
         engine = build_engine(settings)
         with Session(engine) as session:
@@ -172,6 +179,15 @@ def run(
                     )
                 else:
                     outcome.results["classifier"] = result.as_dict()
+
+            if "review" in suites:
+                review = review_suite.run(session)
+                if review is None:
+                    outcome.skipped.append(
+                        "review: no reviewer decisions captured by the console yet"
+                    )
+                else:
+                    outcome.results["review"] = review.as_dict()
 
             if "agent" in suites:
                 agent = agent_suite.run(session, settings, max_lots=agent_lots)
@@ -212,7 +228,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--suite",
         action="append",
-        choices=["classifier", "agent", "guardrail"],
+        choices=["classifier", "agent", "guardrail", "review"],
         help="run only these suites (repeatable); default is all",
     )
     parser.add_argument("--holdout-limit", type=int, default=None)
@@ -228,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
     settings = get_settings()
     configure_logging(settings)
 
-    suites = set(args.suite) if args.suite else {"classifier", "agent", "guardrail"}
+    suites = set(args.suite) if args.suite else {"classifier", "agent", "guardrail", "review"}
     outcome = run(
         settings,
         suites=suites,

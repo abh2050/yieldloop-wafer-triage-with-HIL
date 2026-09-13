@@ -197,6 +197,61 @@ def _agent_section(result: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _review_section(result: dict[str, Any]) -> str:
+    rows = [
+        ["Decisions captured", f"{result['decisions']:,}"],
+        ["With a model prediction to compare", f"{result['with_model_label']:,}"],
+        ["Override rate (all)", _percent(result["override_rate"])],
+        ["Override rate (prediction shown)", _percent(result["override_rate_shown"])],
+        ["Override rate (prediction withheld)", _percent(result["override_rate_blind"])],
+        [
+            "Anchoring delta",
+            f"{result['anchoring_delta'] * 100:+.2f} pp"
+            if result.get("anchoring_measurable")
+            else "not measurable — one regime has no decisions",
+        ],
+        ["Median decision time", f"{result['median_decision_seconds']:.2f} s"],
+        ["p95 decision time", f"{result['p95_decision_ms'] / 1000:.2f} s"],
+    ]
+    lines = [
+        "## Reviewer agreement",
+        "",
+        "Override rate alone is ambiguous: a low rate can mean the model is good, or ",
+        "that reviewers are deferring to it. Splitting by whether the prediction was ",
+        "visible separates the two, which is why every decision records what the ",
+        "reviewer could see.",
+        "",
+        "A large positive anchoring delta -- reviewers disagreeing far more often when ",
+        "they could not see the prediction -- means visible predictions are buying ",
+        "agreement rather than earning it, and the confidence floor should rise.",
+        "",
+        _table(["Metric", "Value"], rows),
+    ]
+    if result.get("thin_sample"):
+        lines += [
+            "",
+            f"> Fewer than {result['min_decisions_for_confidence']} decisions. These "
+            "rates are reported for completeness but are not yet a measurement, and the "
+            "eval gate does not hold them to a floor.",
+        ]
+    if result.get("reason_code_counts"):
+        lines += [
+            "",
+            "### Why reviewers disagreed",
+            "",
+            _table(
+                ["Reason", "Count"],
+                [
+                    [code, str(count)]
+                    for code, count in sorted(
+                        result["reason_code_counts"].items(), key=lambda kv: -kv[1]
+                    )
+                ],
+            ),
+        ]
+    return "\n".join(lines)
+
+
 def _guardrail_section(result: dict[str, Any]) -> str:
     status = "**PASS**" if result["passed"] else "**FAIL**"
     lines = [
@@ -256,6 +311,8 @@ def render(payload: dict[str, Any]) -> str:
         sections += [_classifier_section(results["classifier"]), ""]
     if "agent" in results:
         sections += [_agent_section(results["agent"]), ""]
+    if "review" in results:
+        sections += [_review_section(results["review"]), ""]
     if "guardrail" in results:
         sections += [_guardrail_section(results["guardrail"]), ""]
 

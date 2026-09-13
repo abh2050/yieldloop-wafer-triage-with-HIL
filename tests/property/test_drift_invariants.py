@@ -223,3 +223,39 @@ def test_calibration_error_shape_mismatch_is_rejected() -> None:
 
 def test_psi_thresholds_are_ordered() -> None:
     assert 0.0 < PSI_MINOR < PSI_MAJOR
+
+
+# --- agreement: unmeasurable is not the same as zero ----------------------
+
+
+def test_anchoring_delta_is_none_when_one_regime_is_empty() -> None:
+    """Reporting 0.0 would read as "no anchoring effect" when it means "not
+    measured", and those call for opposite responses."""
+    from eval.metrics.agreement import DecisionObservation
+    from eval.metrics.agreement import summarize as summarize_agreement
+
+    blind_only = [
+        DecisionObservation("w1", "none", "loc", False, True, 1000, "wrong_class")
+        for _ in range(20)
+    ]
+    report = summarize_agreement(blind_only)
+    assert report.blind_decisions == 20
+    assert report.shown_decisions == 0
+    assert not report.anchoring_measurable
+    assert report.anchoring_delta is None
+
+
+def test_anchoring_delta_is_reported_when_both_regimes_exist() -> None:
+    from eval.metrics.agreement import DecisionObservation
+    from eval.metrics.agreement import summarize as summarize_agreement
+
+    observations = [
+        *[DecisionObservation("w", "none", "none", True, False, 900, None) for _ in range(10)],
+        *[
+            DecisionObservation("w", "none", "loc", False, True, 900, "wrong_class")
+            for _ in range(10)
+        ],
+    ]
+    report = summarize_agreement(observations)
+    assert report.anchoring_measurable
+    assert report.anchoring_delta == pytest.approx(1.0)
