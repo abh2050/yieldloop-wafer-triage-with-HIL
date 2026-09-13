@@ -161,7 +161,7 @@
       <a href="#human-loop">Human loop</a>
       <a href="#guarded-agent">Guarded agent</a>
       <span class="spacer"></span>
-      <a class="repo" href="../../README.md">README</a>
+      <a class="repo" href="https://github.com/abh2050/yieldloop-wafer-triage-with-HIL#readme">README</a>
     </nav>
 
     <main>
@@ -191,13 +191,13 @@
           because those decisions are what the next training round reads.
         </p>
         <figure>
-          <a href="yieldloop-architecture.html">
-            <img src="yieldloop-architecture.png" alt="yieldloop architecture: WM811K ingest through Postgres to the classifier, sampling and retrieval, the guardrails wrapping the OpenAI call, and decisions feeding back from the review console" />
+          <a href="diagrams/yieldloop-architecture.html">
+            <img src="diagrams/yieldloop-architecture.png" alt="yieldloop architecture: WM811K ingest through Postgres to the classifier, sampling and retrieval, the guardrails wrapping the OpenAI call, and decisions feeding back from the review console" />
           </a>
           <figcaption>
-            <a href="yieldloop-architecture.html">Open interactive</a>
+            <a href="diagrams/yieldloop-architecture.html">Open interactive</a>
             <span class="sep">·</span>
-            <a href="yieldloop-architecture.json">spec</a>
+            <a href="diagrams/yieldloop-architecture.json">spec</a>
             <span class="sep">·</span>
             <span>811,457 wafers · 78.7% unlabeled · lot-keyed splits</span>
           </figcaption>
@@ -216,13 +216,13 @@
           the model's own error laundered back in as a human label.
         </p>
         <figure>
-          <a href="yieldloop-routing-bands.html">
-            <img src="yieldloop-routing-bands.png" alt="Routing bands: at or above 0.95 auto-commit covering 87.75% of wafers with 0.44% escaped errors, 0.55 to 0.95 shown to a reviewer, below 0.55 withheld from the reviewer" />
+          <a href="diagrams/yieldloop-routing-bands.html">
+            <img src="diagrams/yieldloop-routing-bands.png" alt="Routing bands: at or above 0.95 auto-commit covering 87.75% of wafers with 0.44% escaped errors, 0.55 to 0.95 shown to a reviewer, below 0.55 withheld from the reviewer" />
           </a>
           <figcaption>
-            <a href="yieldloop-routing-bands.html">Open interactive</a>
+            <a href="diagrams/yieldloop-routing-bands.html">Open interactive</a>
             <span class="sep">·</span>
-            <a href="yieldloop-routing-bands.json">spec</a>
+            <a href="diagrams/yieldloop-routing-bands.json">spec</a>
             <span class="sep">·</span>
             <span>87.75% automated · 0.44% escaped errors</span>
           </figcaption>
@@ -246,13 +246,13 @@
           leak into training.
         </p>
         <figure>
-          <a href="yieldloop-human-loop.html">
-            <img src="yieldloop-human-loop.png" alt="The human loop: sampling selects a batch, the reviewer labels it without seeing the prediction, decisions are stored and audited, and the next training round reads them while override rate tunes the confidence floor" />
+          <a href="diagrams/yieldloop-human-loop.html">
+            <img src="diagrams/yieldloop-human-loop.png" alt="The human loop: sampling selects a batch, the reviewer labels it without seeing the prediction, decisions are stored and audited, and the next training round reads them while override rate tunes the confidence floor" />
           </a>
           <figcaption>
-            <a href="yieldloop-human-loop.html">Open interactive</a>
+            <a href="diagrams/yieldloop-human-loop.html">Open interactive</a>
             <span class="sep">·</span>
-            <a href="yieldloop-human-loop.json">spec</a>
+            <a href="diagrams/yieldloop-human-loop.json">spec</a>
             <span class="sep">·</span>
             <span>8,000 chosen labels beat 16,000 random</span>
           </figcaption>
@@ -279,13 +279,13 @@
           possibly be grounded is pure waste.
         </p>
         <figure>
-          <a href="yieldloop-guarded-agent.html">
-            <img src="yieldloop-guarded-agent.png" alt="A guarded hypothesis request: bound inputs, assemble the evidence bundle, abstain on an empty bundle, isolate untrusted text, call the model under a strict schema, parse and ground before persisting, and audit on every path" />
+          <a href="diagrams/yieldloop-guarded-agent.html">
+            <img src="diagrams/yieldloop-guarded-agent.png" alt="A guarded hypothesis request: bound inputs, assemble the evidence bundle, abstain on an empty bundle, isolate untrusted text, call the model under a strict schema, parse and ground before persisting, and audit on every path" />
           </a>
           <figcaption>
-            <a href="yieldloop-guarded-agent.html">Open interactive</a>
+            <a href="diagrams/yieldloop-guarded-agent.html">Open interactive</a>
             <span class="sep">·</span>
-            <a href="yieldloop-guarded-agent.json">spec</a>
+            <a href="diagrams/yieldloop-guarded-agent.json">spec</a>
             <span class="sep">·</span>
             <span>100% grounding rate · 0 fabricated citations</span>
           </figcaption>

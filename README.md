@@ -6,7 +6,7 @@ Classifies 811,457 real wafer maps, commits the 87.75% it is confident about wit
 
 [![architecture](docs/diagrams/yieldloop-architecture.png)](docs/diagrams/yieldloop-architecture.html)
 
-_All four system diagrams on one page: [`docs/diagrams/index.html`](docs/diagrams/index.html) — architecture, routing bands, the human loop, and the guarded agent call._
+_All four system diagrams on one page: [`docs/index.html`](docs/index.html) — architecture, routing bands, the human loop, and the guarded agent call._
 
 | | Measured on 26,741 held-out wafers |
 | --- | --- |
@@ -518,7 +518,7 @@ cd frontend && npx playwright test      # needs the API running
 | [Guardrails](docs/guardrails.md) | Each gate, why it exists, what it refuses |
 | [Evaluation](docs/evaluation.md) | Method, and why each metric is reported the way it is |
 | [Runbook](docs/runbook.md) | Operating it, and what to do when something trips |
-| [Diagrams](docs/diagrams/index.html) | All four system diagrams on one scrollable page |
+| [Diagrams](docs/index.html) | All four system diagrams on one scrollable page |
 
 ---
 
