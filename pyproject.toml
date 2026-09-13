@@ -60,6 +60,9 @@ ignore = ["A003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ARG001", "ARG002"]
+# The adversarial corpus deliberately contains fullwidth, zero-width, and
+# bidirectional characters: they are the payload under test, not typos.
+"tests/guardrails/*" = ["ARG001", "ARG002", "RUF001"]
 
 [tool.mypy]
 python_version = "3.12"
