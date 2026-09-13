@@ -8,6 +8,8 @@ labelled as derived in the schema.
 
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Final
@@ -239,3 +241,177 @@ def resolution_text(
         f"docs/data_contract.md; it is a convention of this dataset build, not an "
         f"investigated finding."
     )
+
+
+# ---------------------------------------------------------------------------
+# Process event derivation (rule PROCESS_EVENT_DERIVE)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class LotSummary:
+    """Real, measured facts about one lot. The input to event derivation."""
+
+    lot_name: str
+    lot_ordinal: int
+    wafer_count: int
+    wafer_indices: tuple[int, ...]
+    die_size: float
+    die_total: int
+    die_fail: int
+
+    @property
+    def failure_rate(self) -> float:
+        return self.die_fail / self.die_total if self.die_total else 0.0
+
+    @property
+    def missing_indices(self) -> tuple[int, ...]:
+        """Gaps in the wafer index sequence, measured from the real indices."""
+        if not self.wafer_indices:
+            return ()
+        present = set(self.wafer_indices)
+        return tuple(
+            i for i in range(min(present), max(present) + 1) if i not in present
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DerivedEvent:
+    """A process event derived from real lot structure.
+
+    Never observed. Carries no tool, chamber, recipe, operator, or production
+    timestamp, because WM811K contains none of those.
+    """
+
+    ordinal: int
+    rule: str
+    category: CauseCategory
+    summary: str
+    attributes: dict[str, float | int | str]
+
+
+#: Lots smaller than a full cassette. Real fabs run 25-wafer lots.
+PARTIAL_LOT_THRESHOLD: Final[int] = 25
+
+_EVENT_CATEGORIES: Final[dict[str, CauseCategory]] = {
+    "wafer_index_gap": CauseCategory.HANDLING_MECHANICAL,
+    "partial_lot": CauseCategory.HANDLING_MECHANICAL,
+    "failure_rate_step": CauseCategory.TOOL_DRIFT,
+    "die_size_shift": CauseCategory.RECIPE_CHANGE,
+}
+
+
+def derive_process_events(
+    lot: LotSummary,
+    previous: LotSummary | None,
+    *,
+    failure_rate_std: float,
+) -> list[DerivedEvent]:
+    """Rule ``PROCESS_EVENT_DERIVE``. Emit events from real structural facts.
+
+    Every attribute is a value counted in or read from the dataset. The summary
+    is a fixed template over those values and states no claim that is not a
+    restatement of one of them.
+
+    Args:
+        previous: The lot immediately before this one by ordinal, or None for the
+            first. Step changes are relative to it.
+        failure_rate_std: Dataset-wide standard deviation of lot failure rate,
+            the scale a step is judged against.
+    """
+    events: list[DerivedEvent] = []
+
+    missing = lot.missing_indices
+    if missing:
+        events.append(
+            DerivedEvent(
+                ordinal=len(events),
+                rule="wafer_index_gap",
+                category=_EVENT_CATEGORIES["wafer_index_gap"],
+                summary=(
+                    f"Lot {lot.lot_name} has {len(missing)} gap(s) in its wafer index "
+                    f"sequence across {lot.wafer_count} wafers; indices "
+                    f"{list(missing[:10])} are absent."
+                ),
+                attributes={
+                    "missing_count": len(missing),
+                    "wafer_count": lot.wafer_count,
+                    "first_missing_index": missing[0],
+                },
+            )
+        )
+
+    if lot.wafer_count < PARTIAL_LOT_THRESHOLD:
+        events.append(
+            DerivedEvent(
+                ordinal=len(events),
+                rule="partial_lot",
+                category=_EVENT_CATEGORIES["partial_lot"],
+                summary=(
+                    f"Lot {lot.lot_name} contains {lot.wafer_count} wafers, fewer than a "
+                    f"full {PARTIAL_LOT_THRESHOLD}-wafer cassette."
+                ),
+                attributes={"wafer_count": lot.wafer_count},
+            )
+        )
+
+    if previous is not None and failure_rate_std > 0.0:
+        delta = lot.failure_rate - previous.failure_rate
+        if abs(delta) > failure_rate_std:
+            events.append(
+                DerivedEvent(
+                    ordinal=len(events),
+                    rule="failure_rate_step",
+                    category=_EVENT_CATEGORIES["failure_rate_step"],
+                    summary=(
+                        f"Lot {lot.lot_name} die failure rate is {lot.failure_rate:.2%} "
+                        f"against {previous.failure_rate:.2%} for the preceding lot "
+                        f"{previous.lot_name}, a change of {delta:+.2%} exceeding the "
+                        f"dataset-wide standard deviation of {failure_rate_std:.2%}."
+                    ),
+                    attributes={
+                        "failure_rate": round(lot.failure_rate, 6),
+                        "previous_failure_rate": round(previous.failure_rate, 6),
+                        "delta": round(delta, 6),
+                        "dataset_std": round(failure_rate_std, 6),
+                        "previous_lot": previous.lot_name,
+                    },
+                )
+            )
+
+    if previous is not None and lot.die_size != previous.die_size:
+        events.append(
+            DerivedEvent(
+                ordinal=len(events),
+                rule="die_size_shift",
+                category=_EVENT_CATEGORIES["die_size_shift"],
+                summary=(
+                    f"Lot {lot.lot_name} die count per wafer is {lot.die_size:.0f} against "
+                    f"{previous.die_size:.0f} for the preceding lot {previous.lot_name}."
+                ),
+                attributes={
+                    "die_size": lot.die_size,
+                    "previous_die_size": previous.die_size,
+                    "previous_lot": previous.lot_name,
+                },
+            )
+        )
+
+    return events
+
+
+def dominant_pattern(
+    labels: Iterable[DefectPattern],
+) -> tuple[DefectPattern, float, int] | None:
+    """The plurality label of a lot, its share, and the labeled count.
+
+    Returns None when the lot has no labeled wafers, which excludes it from the
+    historical excursion corpus: a precedent with no observed pattern is not
+    precedent for anything.
+    """
+    counts = Counter(labels)
+    if not counts:
+        return None
+    pattern, count = counts.most_common(1)[0]
+    total = sum(counts.values())
+    return pattern, count / total, total
