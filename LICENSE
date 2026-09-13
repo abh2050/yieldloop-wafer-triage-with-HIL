@@ -1,0 +1,26 @@
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+   -----------------------------------------------------------------------
+
+   Full license text: https://www.apache.org/licenses/LICENSE-2.0.txt
+
+   Copyright 2026 Abhishek Shah
+
+   NOTE ON DATA: this repository contains no dataset. It reads the WM811K
+   (MIR-WM811K) wafer map dataset, which carries its own separate terms
+   accepted on its distribution page:
+   https://www.kaggle.com/datasets/qingyi/wm811k-wafer-map

@@ -1,10 +1,24 @@
 # yieldloop
 
-A wafer map defect triage console with a human decision loop, active learning,
-and a root cause agent that cannot cite evidence it was not given.
+**A wafer map defect triage console with a human decision loop, active learning, and a root cause agent that cannot cite evidence it was not given.**
 
-Every number on this page was measured by the system and is reproducible from
-the commands below. Nothing here is estimated.
+Classifies 811,457 real wafer maps, commits the 87.75% it is confident about without a human, and routes the rest to a keyboard-first review console — hiding its own guess on the cases where showing it would anchor the reviewer rather than help them. Every decision returns as training signal.
+
+[![architecture](docs/diagrams/yieldloop-architecture.png)](docs/diagrams/yieldloop-architecture.html)
+
+| | Measured on 26,741 held-out wafers |
+| --- | --- |
+| Accuracy | **96.36%** against an 86.38% majority-class baseline |
+| Macro F1 | **0.8307** against 0.1030 |
+| Committed without a human | **87.75%**, with 0.44% escaped errors |
+| Labels to reach macro F1 0.60 | **8,000** with active learning; random had not reached it by 16,000 |
+| Fabricated citations from the agent | **0** |
+| Tests | **384 backend + 19 Playwright**, no mocks, all against real infrastructure |
+
+> **Data:** this repository contains no dataset. It reads the real
+> [WM811K wafer map dataset](https://www.kaggle.com/datasets/qingyi/wm811k-wafer-map)
+> (2 GB), fetched to `data/` by `scripts/fetch_dataset.py` and verified by sha256 on
+> every load. There is no generated fallback.
 
 ---
 
@@ -63,68 +77,9 @@ never seen:
 
 ## How it fits together
 
-```mermaid
-flowchart TB
-    subgraph source["Real data"]
-        WM["WM811K archive<br/>811,457 wafers · 78.7% unlabeled"]
-    end
+[![yieldloop architecture](docs/diagrams/yieldloop-architecture.png)](docs/diagrams/yieldloop-architecture.html)
 
-    subgraph ingestion["ingest"]
-        NORM["normalize<br/>64x64 grid, alphabet preserved"]
-        PART["partition<br/>lot-keyed, no lot straddles a split"]
-    end
-
-    DB[("Postgres<br/>wafers · predictions · decisions<br/>audit_records (append-only)")]
-
-    subgraph learning["models"]
-        CNN["WaferCNN<br/>305,129 params"]
-        CAL["temperature scaling<br/>fit on validation only"]
-        REG["content-addressed registry<br/>data hash · commit · seed"]
-    end
-
-    subgraph selection["sampling · retrieval"]
-        SAMP["entropy + diversity<br/>pure functions"]
-        FAISS["exact IP index<br/>lot centroids"]
-    end
-
-    subgraph gates["Three human gates"]
-        G1["1 · Label<br/>prediction never shown"]
-        G2["2 · Confirm<br/>shown above floor, withheld below"]
-        G3["3 · Escalation<br/>ranked hypotheses + evidence"]
-    end
-
-    subgraph guarded["guardrails — not bypassable"]
-        GR["input filter · injection isolation<br/>schema · grounding · budget · breaker"]
-        LLM(["OpenAI<br/>hypotheses only, never wafer maps"])
-    end
-
-    UI["React console<br/>keyboard-first"]
-    TEL["telemetry<br/>drift · override rate"]
-
-    WM --> NORM --> PART --> DB
-    DB --> CNN --> CAL --> REG
-    REG --> SAMP
-    CAL --> FAISS
-    SAMP --> G1
-    CAL -- "routing bands" --> G2
-    FAISS --> GR
-    DB --> GR
-    GR <--> LLM
-    GR --> G3
-    G1 --> UI
-    G2 --> UI
-    G3 --> UI
-    UI -- "decisions become training signal" --> DB
-    DB --> TEL
-    TEL -. "override rate informs the floor" .-> G2
-
-    classDef human fill:#1e3a5f,stroke:#4a9eff,color:#fff
-    classDef guard fill:#4a1f1f,stroke:#ff6b6b,color:#fff
-    classDef data fill:#1f3d2b,stroke:#4ade80,color:#fff
-    class G1,G2,G3,UI human
-    class GR,LLM guard
-    class WM,DB data
-```
+_Interactive version: [`docs/diagrams/yieldloop-architecture.html`](docs/diagrams/yieldloop-architecture.html) — themes, pan/zoom, search, relationship tracing. Source spec: [`yieldloop-architecture.json`](docs/diagrams/yieldloop-architecture.json)._
 
 Three things this makes visible that a file listing does not. The classifier and
 the LLM are **separate paths** — no wafer map ever reaches OpenAI. The guardrails
@@ -244,22 +199,9 @@ the threshold — expressed by producing no task at all.
 ranked root cause hypotheses with inline evidence. One odd wafer is noise; a
 pattern across a lot is a lot-level cause worth asking about.
 
-```mermaid
-flowchart LR
-    P["calibrated<br/>confidence"] --> C{"vs configured<br/>bands"}
-    C -- "≥ 0.95<br/>auto-commit" --> A["Committed<br/>no human<br/>87.75% of wafers"]
-    C -- "0.55 – 0.95<br/>uncertainty band" --> B["Human reviews<br/>prediction shown"]
-    C -- "< 0.55<br/>below floor" --> F["Human reviews<br/>prediction withheld"]
-    F --> N["withholding prevents anchoring —<br/>the API omits the field,<br/>the client does not hide it"]
-    A --> E["0.44% escaped errors<br/>wrong and never seen"]
+[![routing bands](docs/diagrams/yieldloop-routing-bands.png)](docs/diagrams/yieldloop-routing-bands.html)
 
-    classDef auto fill:#1f3d2b,stroke:#4ade80,color:#fff
-    classDef human fill:#1e3a5f,stroke:#4a9eff,color:#fff
-    classDef warn fill:#4a3a1f,stroke:#fbbf24,color:#fff
-    class A auto
-    class B,F human
-    class E,N warn
-```
+_Interactive version: [`docs/diagrams/yieldloop-routing-bands.html`](docs/diagrams/yieldloop-routing-bands.html) — themes, pan/zoom, search, relationship tracing. Source spec: [`yieldloop-routing-bands.json`](docs/diagrams/yieldloop-routing-bands.json)._
 
 **And the loop closes.** Every decision is written back as training signal: a
 reviewer label overrides the dataset's own annotation for that wafer, a reviewer
@@ -273,43 +215,13 @@ WM811K.
 Decisions also record **what the reviewer could see**, which is what makes the
 anchoring effect measurable rather than assumed.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant S as sampling
-    participant Q as review queue
-    actor R as Reviewer
-    participant D as decisions
-    participant DB as Postgres
-    participant T as next training round
+[![the human loop closing](docs/diagrams/yieldloop-human-loop.png)](docs/diagrams/yieldloop-human-loop.html)
 
-    Note over S,Q: Gate 1 — Label
-
-    S->>S: score unlabeled pool by entropy
-    S->>S: greedy max-min on embeddings
-    Note over S: diversity stops a round<br/>spending itself on near-duplicates
-    S->>Q: queue the batch, show_prediction = false
-
-    Q-->>R: wafer map only, no model guess
-    Note over R: an independent label —<br/>showing a guess makes it agreement
-
-    R->>D: one keystroke, label + elapsed ms
-    D->>D: compare against the hidden prediction
-    D->>DB: decision + is_override + prediction_was_shown
-    D->>DB: append-only audit record
-
-    Note over DB,T: the loop closes here
-
-    DB->>T: reviewer label overrides the dataset label
-    DB->>T: newly labeled wafer becomes a training example
-    Note over T: scoped to its split —<br/>a holdout decision can never leak
-    T->>DB: new artifact, recording how many<br/>labels came from the console
-
-    DB->>Q: override rate, split by what the reviewer saw
-    Note over Q: disagreeing more when the guess is hidden<br/>means visible guesses buy agreement —<br/>raise the confidence floor
-```
+_Interactive version: [`docs/diagrams/yieldloop-human-loop.html`](docs/diagrams/yieldloop-human-loop.html) — themes, pan/zoom, search, relationship tracing. Source spec: [`yieldloop-human-loop.json`](docs/diagrams/yieldloop-human-loop.json)._
 
 ## The console
+
+![label gate](docs/screenshots/01-label-gate-keyboard-first.png)
 
 Six screens. The three that carry the product:
 
@@ -332,6 +244,17 @@ claim rendering its evidence as a clickable citation. Abstention renders as
 
 Plus **ModelHealth** (calibration, override rates, per-class recall) and
 **AuditTrail** (the append-only log with live hash-chain verification).
+
+| | |
+| --- | --- |
+| ![triage](docs/screenshots/02-triage-queue-prediction-withheld.png) | ![model health](docs/screenshots/04-model-health-calibration-and-per-class-recall.png) |
+| Triage queue — every row says **withheld**, because these fell below the confidence floor and the API omits the fields entirely | Model health — calibration before and after, and override rate reported twice so the anchoring effect is visible |
+
+![audit trail](docs/screenshots/05-audit-trail-hash-chain-intact.png)
+
+The audit trail, with its hash chain verified live. `UPDATE`, `DELETE` and
+`TRUNCATE` are revoked on this table and a trigger raises regardless of
+privilege, so the chain is the last line rather than the first.
 
 ---
 
@@ -457,49 +380,9 @@ and no caller flag disables it — the transport client knows nothing about
 grounding, budgets, or the breaker, which is what stops a future caller reaching
 the model without them.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Eng as Process engineer
-    participant API as FastAPI route
-    participant Ret as retrieval
-    participant GR as guardrails
-    participant LLM as OpenAI
-    participant DB as Postgres
+[![guarded hypothesis request](docs/diagrams/yieldloop-guarded-agent.png)](docs/diagrams/yieldloop-guarded-agent.html)
 
-    Eng->>API: POST /hypothesis {lot}
-    API->>GR: validate lot id, reviewer note
-    Note over GR: bounded before a token is spent
-
-    API->>Ret: assemble context bundle
-    Ret->>DB: predictions, die stats, process events
-    Ret->>Ret: exact search over lot centroids
-    Ret-->>API: bundle, every item carries an evidence_id
-
-    alt bundle is empty
-        GR-->>Eng: abstention — no model call, no spend
-    else evidence exists
-        GR->>GR: isolate untrusted text as data
-        GR->>GR: check token caps, session and daily spend
-        GR->>LLM: system prompt + bundle, strict JSON schema
-        LLM-->>GR: candidate hypotheses
-
-        GR->>GR: strict parse — fail closed
-        GR->>GR: grounding — every citation must resolve
-
-        alt nothing survives grounding
-            GR->>DB: record dropped claims and their fabricated ids
-            GR-->>Eng: abstention — "insufficient evidence", with reason
-        else claims survive
-            GR->>DB: persist only grounded hypotheses + citations
-            GR-->>Eng: ranked hypotheses, each citation clickable
-        end
-    end
-
-    GR->>DB: cost ledger entry
-    GR->>DB: append-only audit record
-    Note over DB: hash-chained, with UPDATE and DELETE revoked
-```
+_Interactive version: [`docs/diagrams/yieldloop-guarded-agent.html`](docs/diagrams/yieldloop-guarded-agent.html) — themes, pan/zoom, search, relationship tracing. Source spec: [`yieldloop-guarded-agent.json`](docs/diagrams/yieldloop-guarded-agent.json)._
 
 The ordering is the design. Validation and the budget check happen **before a
 token is spent**. Isolation happens while the prompt is built, so untrusted text
