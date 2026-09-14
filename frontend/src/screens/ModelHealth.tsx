@@ -67,7 +67,7 @@ export function ModelHealth() {
         <Stat
           label="Temperature"
           value={metrics.temperature != null ? Number(metrics.temperature).toFixed(3) : "—"}
-          hint={metrics.temperature_at_bound ? "pinned at bound — not trustworthy" : undefined}
+          hint={metrics.temperature_at_bound ? "pinned at bound, so confidences are not trustworthy" : undefined}
         />
         <Stat label="Queue depth" value={String(health.queue_depth)} />
         <Stat label="Decisions" value={String(health.decisions)} />
@@ -79,7 +79,7 @@ export function ModelHealth() {
         <Stat
           label="Override (shown)"
           value={`${(health.override_rate_when_shown * 100).toFixed(1)}%`}
-          hint="Gap vs overall is the anchoring effect"
+          hint="The gap against the overall rate measures anchoring"
         />
       </div>
 

@@ -1,10 +1,9 @@
-"""Markdown report generation. This file is the case study artifact.
+"""Markdown report generation. This file produces the case study artifact.
 
-Written to be read by someone who was not in the room: every table says what the
-number means and what it should be compared against. In particular accuracy is
-never printed without the majority-class baseline beside it, because 85% of
-labeled WM811K wafers are `none` and an unqualified accuracy figure here is
-actively misleading.
+The report addresses a reader who was not in the room, so every table states
+what the number means and what it should be compared against. Accuracy never
+appears without the majority-class baseline beside it, because 85% of labeled
+WM811K wafers are `none` and an unqualified accuracy figure misleads the reader.
 """
 
 from __future__ import annotations
@@ -51,19 +50,19 @@ def _classifier_section(result: dict[str, Any]) -> str:
                     "Accuracy",
                     _percent(holdout["accuracy"]),
                     _percent(baseline["accuracy"]),
-                    "Misleading alone: 85% of labels are `none`",
+                    "Misleads on its own, because 85% of labels are `none`",
                 ],
                 [
                     "Macro F1",
                     f"{holdout['macro_f1']:.4f}",
                     f"{baseline['macro_f1']:.4f}",
-                    "The number that separates a useful model from a constant one",
+                    "Weights every class equally, so rare classes count",
                 ],
                 [
                     "Balanced accuracy",
                     _percent(holdout["balanced_accuracy"]),
                     _percent(baseline["balanced_accuracy"]),
-                    "Macro recall; equal weight per class",
+                    "Averages recall across classes with equal weight",
                 ],
             ],
         ),
@@ -97,11 +96,11 @@ def _classifier_section(result: dict[str, Any]) -> str:
         "class is predicted, so accuracy above is unaffected and the improvement below ",
         "is real.",
         "",
-        "The last row is the one that bears on whether automation is safe: it measures ",
-        "only the band auto-commit governs, rather than averaging across a range most ",
-        "predictions never reach. Max calibration error ignores bins holding fewer than ",
-        "30 predictions, since a two-sample bin admits accuracies of only 0, 0.5 or 1 ",
-        "and its apparent gap is noise.",
+        "The last row bears on whether automation is safe. It measures only the band ",
+        "that auto-commit governs rather than averaging across a range most predictions ",
+        "never reach. Max calibration error ignores bins holding fewer than 30 ",
+        "predictions, because a two-sample bin admits accuracies of only 0, 0.5 or 1 ",
+        "and its apparent gap carries noise.",
         "",
         _table(
             ["Metric", "Value"],
@@ -212,10 +211,10 @@ def _label_efficiency_section(efficiency: dict[str, Any] | None) -> str:
         "only at matched label counts. Both arms use the same splits, hyperparameters ",
         "and seed and differ only in which wafers were chosen.",
         "",
-        "The active arm is simulated iteratively: the selector at each step is trained ",
-        "only on what has been acquired so far. Selecting in one shot with a model that ",
-        "had seen the whole dataset would leak it into the selection, which is the most ",
-        "common way this experiment is reported wrongly.",
+        "The simulation runs the active arm iteratively. The selector at each step ",
+        "trains only on what it has acquired so far. Selecting in one shot with a model ",
+        "that had seen the whole dataset would leak the dataset into the selection, and ",
+        "that leak is how this experiment usually gets reported wrongly.",
         "",
         _table(headers, rows),
         "",
@@ -237,12 +236,12 @@ def _label_efficiency_section(efficiency: dict[str, Any] | None) -> str:
         minimum = efficiency.get("min_support_for_recall", 30)
         lines += [
             "",
-            f"> Rare-class recall is **omitted**, not hidden: the smallest rare class "
-            f"has {support} wafers in this evaluation set, below the {minimum} needed for "
-            "a recall figure to mean anything. At that size recall can only take a few "
-            "discrete values, so movement between the arms is quantization rather than "
-            "signal, and an average is only as trustworthy as its weakest term. "
-            "Per-class recall on the full holdout is in the table above.",
+            f"> This report **omits** rare-class recall and says so here. The smallest "
+            f"rare class has {support} wafers in this evaluation set, below the {minimum} "
+            "a recall figure needs to carry meaning. At that size recall takes only a few "
+            "discrete values, so movement between the arms reflects quantization rather "
+            "than signal, and an average is only as trustworthy as its weakest term. "
+            "The table above reports per-class recall on the full holdout.",
         ]
 
     first = min(set(active) & set(random_arm), default=None)
@@ -302,13 +301,14 @@ def _agent_section(result: dict[str, Any]) -> str:
     lines = [
         "## Root cause agent",
         "",
-        "Grounding rate is the fraction of proposed hypotheses whose citations all ",
-        "resolved to evidence in the context bundle. A rate below 100% does not mean a ",
-        "reviewer saw something wrong -- the gate dropped those claims -- it means the ",
-        "model attempted a fabrication.",
+        "Grounding rate reports the fraction of proposed hypotheses whose citations all ",
+        "resolved to evidence in the context bundle. A rate below 100% means the model ",
+        "attempted a fabrication and the gate dropped those claims before any reviewer ",
+        "saw them.",
         "",
-        "Abstention rate is **not** minimized. Abstaining on a thin bundle is correct; a ",
-        "rate of zero against sparse evidence would mean the model is inventing support.",
+        "Abstention rate stays deliberately **unminimized**. Abstaining on a thin bundle ",
+        "is the correct answer, and a rate of zero against sparse evidence would mean the ",
+        "model is inventing support.",
         "",
         _table(["Metric", "Value"], rows),
     ]
@@ -328,7 +328,7 @@ def _review_section(result: dict[str, Any]) -> str:
             "Anchoring delta",
             f"{result['anchoring_delta'] * 100:+.2f} pp"
             if result.get("anchoring_measurable")
-            else "not measurable — one regime has no decisions",
+            else "not measurable, because one regime has no decisions",
         ],
         ["Median decision time", f"{result['median_decision_seconds']:.2f} s"],
         ["p95 decision time", f"{result['p95_decision_ms'] / 1000:.2f} s"],
@@ -336,14 +336,14 @@ def _review_section(result: dict[str, Any]) -> str:
     lines = [
         "## Reviewer agreement",
         "",
-        "Override rate alone is ambiguous: a low rate can mean the model is good, or ",
-        "that reviewers are deferring to it. Splitting by whether the prediction was ",
-        "visible separates the two, which is why every decision records what the ",
-        "reviewer could see.",
+        "Override rate alone reads two ways. A low rate can mean the model is good, or ",
+        "it can mean reviewers are deferring to it. Splitting the rate by whether the ",
+        "console showed the prediction separates the two, so every decision records what ",
+        "the reviewer could see.",
         "",
-        "A large positive anchoring delta -- reviewers disagreeing far more often when ",
-        "they could not see the prediction -- means visible predictions are buying ",
-        "agreement rather than earning it, and the confidence floor should rise.",
+        "A large positive anchoring delta means reviewers disagreed far more often when ",
+        "they could not see the prediction. Visible predictions are then buying agreement ",
+        "rather than earning it, and the confidence floor should rise.",
         "",
         _table(["Metric", "Value"], rows),
     ]
@@ -379,10 +379,10 @@ def _guardrail_section(result: dict[str, Any]) -> str:
         "",
         f"{result['checks']} adversarial checks: {status}",
         "",
-        "The suite asserts a property, not a rate: for every hostile input, the layer ",
-        "must fail closed. A single pass-through is a failure regardless of how many ",
-        "other cases were handled. It runs without a database or an API key, so it gates ",
-        "every pull request.",
+        "The suite asserts a property rather than a rate. The layer must fail closed on ",
+        "every hostile input, so a single pass-through fails the suite regardless of how ",
+        "many other cases it handled. The suite runs without a database or an API key, so ",
+        "it gates every pull request.",
         "",
     ]
     if result["failures"]:
@@ -397,9 +397,8 @@ def render(payload: dict[str, Any]) -> str:
     sections = [
         "# yieldloop evaluation report",
         "",
-        "All metrics are computed from the real WM811K dataset and from decisions real ",
-        "reviewers made in this console. There is no synthetic ground truth anywhere in ",
-        "this report.",
+        "Every metric here comes from the real WM811K dataset and from decisions real ",
+        "reviewers made in this console. This report contains no synthetic ground truth.",
         "",
     ]
 

@@ -7,18 +7,16 @@ import type { HypothesisEnvelope } from "@/api/types";
 /**
  * The escalation gate.
  *
- * Three things this screen refuses to do, each deliberate.
+ * This screen renders only hypotheses that passed the guardrail layer. The API
+ * returns grounded ones alone, and no client path bypasses it.
  *
- * It never renders a hypothesis that did not pass the guardrail layer: the API
- * only returns grounded ones, and there is no client path that bypasses it.
+ * It renders an abstention as a full answer and shows the reason. Naming the
+ * missing evidence tells the reviewer something. A blank panel reads as a
+ * broken feature and trains reviewers to ignore the screen.
  *
- * It renders abstention as a first-class answer with its reason, not as an empty
- * card. "Insufficient evidence, and here is why" is useful; a blank panel reads
- * as a broken feature and trains reviewers to ignore the screen.
- *
- * It shows the degraded state plainly when the breaker is open, rather than an
- * error. The rest of the console still works and the reviewer should know the
- * difference between "no hypothesis" and "hypotheses are unavailable".
+ * It states the degraded mode plainly when the breaker is open. The rest of the
+ * console keeps working, and the reviewer needs to tell "no hypothesis" apart
+ * from "hypotheses are unavailable".
  */
 export function HypothesisCard() {
   const [lotName, setLotName] = useState("");

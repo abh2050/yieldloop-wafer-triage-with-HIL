@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "yieldloop"
 version = "0.1.0"
-description = "Wafer map defect triage console with a human decision loop, active learning, and a grounded root cause agent."
+description = "Classifies wafer map defects, routes uncertain cases to an engineer, and proposes root causes that cite retrieved evidence."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { text = "Apache-2.0" }

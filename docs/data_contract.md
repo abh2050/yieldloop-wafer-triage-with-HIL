@@ -1,15 +1,15 @@
 # Data contract
 
-Everything yieldloop stores is either a **real field** from the WM811K wafer map
-dataset, a **real human action** captured by the console, or a **derived value**
-produced by a deterministic rule documented on this page. There is no fourth
-category. No wafer map is generated, no defect label is invented, and no fab
-event is fabricated.
+Everything yieldloop stores falls into three categories. A row holds a real field
+from the WM811K wafer map dataset, a real human action captured by the console,
+or a derived value produced by a deterministic rule documented on this page. No
+fourth category exists. The system generates no wafer map, invents no defect
+label, and fabricates no fab event.
 
-Rows that are derived carry their rule name in a `derivation_rule` column, and
-the two tables that could otherwise be mistaken for observed fab telemetry
-(`process_events`, `historical_excursions`) carry a non-nullable `is_derived`
-column with a database check constraint pinning it to true.
+Derived rows carry their rule name in a `derivation_rule` column. The two tables
+that someone could otherwise mistake for observed fab telemetry, `process_events`
+and `historical_excursions`, carry a non-nullable `is_derived` column with a
+database check constraint pinning it to true.
 
 ## 1. Source
 
@@ -26,9 +26,9 @@ column with a database check constraint pinning it to true.
 | Acquisition | `scripts/fetch_dataset.py` via the Kaggle API |
 | Integrity | sha256 verified on every load |
 
-The label distribution is the reason this project is shaped around active
-learning rather than around a supervised baseline: **78.7% of the dataset carries
-no human label at all**, and the labeled remainder is dominated by `none`.
+The label distribution explains why this project is shaped around active learning
+rather than around a supervised baseline. 78.7% of the dataset carries no human
+label at all, and `none` dominates the labeled remainder.
 
 | `failureType` | Count | Share of labeled |
 | --- | --- | --- |
@@ -42,24 +42,25 @@ no human label at all**, and the labeled remainder is dominated by `none`.
 | `Donut` | 555 | 0.3% |
 | `Near-full` | 149 | 0.1% |
 
-`Near-full` is 0.09% of labeled wafers. Per-class recall is therefore reported
-separately in the eval harness rather than being folded into an accuracy figure
-that a majority-class predictor would score 85% on.
+`Near-full` accounts for 0.09% of labeled wafers. The eval harness therefore
+reports per-class recall separately rather than folding it into an accuracy
+figure that a majority-class predictor would score 85% on.
 
 ### Two properties of the real file
 
-**It is a Python 2 pickle written with pandas 0.x (2019).** It references module
-paths that no longer exist (`pandas.indexes.base`, `pandas.indexes.range`) and
-its strings are latin1. `yieldloop.ingest.loader` maps the old module paths onto
-their current homes at unpickling time. Converting the file once and committing
-the result is rejected deliberately: it would place a derived artifact between
-the published dataset and every metric, and the pinned sha256 would then verify
-our copy rather than the real thing.
+**A Python 2 pickle written with pandas 0.x in 2019.** The file references module
+paths that no longer exist, namely `pandas.indexes.base` and
+`pandas.indexes.range`, and its strings are latin1. `yieldloop.ingest.loader`
+maps the old module paths onto their current homes at unpickling time. This
+project deliberately refuses to convert the file once and commit the result.
+Doing so would place a derived artifact between the published dataset and every
+metric, and the pinned sha256 would then verify our copy rather than the real
+thing.
 
-**The train/test column is misspelled in the dataset**, as `trianTestLabel`. The
-loader reads that exact name and exposes it under the corrected one. It does not
-accept either spelling, so a future release that fixes the typo surfaces as a
-contract failure to be looked at rather than as a column that quietly starts
+**A misspelled train/test column.** The dataset spells it `trianTestLabel`. The
+loader reads that exact name and exposes it under the corrected one. It accepts
+only that spelling, so a future release that fixes the typo surfaces as a
+contract failure someone looks at rather than as a column that quietly starts
 arriving empty.
 
 ### Real fields consumed
@@ -73,16 +74,17 @@ arriving empty.
 | `trianTestLabel` | `(1,1)` array of string, or `(0,0)` when absent | `wafers.dataset_split_label`, preserved but **not** used for partitioning |
 | `failureType` | `(1,1)` array of string, or `(0,0)` when absent | `wafers.dataset_label` via `DefectPattern.from_dataset_label` |
 
-Optional fields are stored per row as small numpy arrays: shape `(1, 1)` when a
-value is present and `(0, 0)` when it is absent. An empty array means *unlabeled*
-and is read as `None`, never as a label.
+The dataset stores optional fields per row as small numpy arrays. A present value
+has shape `(1, 1)` and an absent one has shape `(0, 0)`. The loader reads an
+empty array as unlabeled and never as a label.
 
-The `waferMap` encoding is preserved exactly: `0` is outside the wafer, `1` is a
-passing die, `2` is a failing die. Normalization never reassigns these values.
+Normalization preserves the `waferMap` encoding exactly. 0 marks a position
+outside the wafer, 1 marks a passing die, and 2 marks a failing die. No step
+reassigns these values.
 
-Most rows in WM811K carry no `failureType`. That is not a defect in the data; it
-is the reason active learning is the right shape for this problem, and the
-unlabeled majority is the pool the sampler draws from.
+Most rows in WM811K carry no `failureType`. That absence is not a defect in the
+data. It is the reason active learning fits this problem, and the unlabeled
+majority is the pool the sampler draws from.
 
 ## 2. Derivation rules
 
@@ -93,69 +95,72 @@ same `YIELDLOOP_PARTITION_SEED`, each produces identical output on every machine
 
 **Inputs:** `waferMap`, `YIELDLOOP_GRID_HEIGHT`, `YIELDLOOP_GRID_WIDTH`.
 
-Wafer maps in WM811K vary in shape. Each map is resampled to the configured grid
-by nearest-neighbour index mapping, which preserves the `{0,1,2}` alphabet
-exactly — no interpolation, so no die ever acquires a value the source did not
-contain. `die_total` and `die_fail` are counted on the **raw** map before
-resampling, so reported die statistics are the real counts and not an artifact
-of normalization.
+Wafer maps in WM811K vary in shape. The rule resamples each map to the configured
+grid by nearest-neighbour index mapping, which preserves the `{0,1,2}` alphabet
+exactly. No interpolation runs, so no die acquires a value the source did not
+contain. The rule counts `die_total` and `die_fail` on the raw map before
+resampling, so the reported die statistics are the real counts rather than an
+artifact of normalization.
 
 ### `LOT_ORDINAL`
 
 **Inputs:** `lotName` across the whole dataset.
 
-Lots are sorted by `lotName` under a stable, locale-independent byte ordering and
-assigned a 0-based ordinal. This is the only ordering WM811K admits: the dataset
-carries no timestamps.
+The rule sorts lots by `lotName` under a stable, locale-independent byte ordering
+and assigns a 0-based ordinal. This is the only ordering WM811K admits, because
+the dataset carries no timestamps.
 
 ### `LOT_DATE`
 
 **Inputs:** `LOT_ORDINAL`, a fixed epoch of `2021-01-01`.
 
-`derived_date = epoch + lot_ordinal days`. This exists because the retention
-window and the process-event window need a total order, and WM811K has no
-calendar. It is a synthetic index expressed as a date, **not** a production date,
-and nothing in the system treats it as one. It is used only for (a) retention
-window enforcement in the input filter and (b) ordering process events relative
-to a lot.
+The rule computes `derived_date = epoch + lot_ordinal days`. It exists because
+the retention window and the process-event window need a total order, and WM811K
+has no calendar. The value is a synthetic index expressed as a date rather than a
+production date, and nothing in the system treats it as one. The input filter
+uses it to enforce the retention window, and the retrieval layer uses it to order
+process events relative to a lot.
 
 ### `PARTITION_ASSIGN`
 
-**Inputs:** `lotName`, `YIELDLOOP_PARTITION_SEED`, the train/val fractions.
+**Inputs:** `lotName`, `YIELDLOOP_PARTITION_SEED`, the train and validation
+fractions.
 
-A lot is assigned to a split by `blake2b(f"{seed}:{lot_name}")`, taking the first
-8 bytes as an unsigned integer and mapping it onto `[0, 1)`. Below the train
-fraction is `train`; below train + val is `val`; otherwise `holdout`. Every wafer
-inherits its lot's split, so **no lot straddles a split** and the classifier can
-never be evaluated on a wafer from a lot it trained on. The dataset's own
-`trainTestLabel` is deliberately not used, because it does not respect lot
-boundaries.
+The rule assigns a lot to a split by computing `blake2b(f"{seed}:{lot_name}")`,
+taking the first 8 bytes as an unsigned integer, and mapping it onto `[0, 1)`. A
+value below the train fraction gives `train`, a value below train plus validation
+gives `val`, and anything else gives `holdout`. Every wafer inherits its lot's
+split, so no lot straddles a split and the classifier can never be evaluated on a
+wafer from a lot it trained on. The rule ignores the dataset's own
+`trainTestLabel`, which does not respect lot boundaries.
 
 ### `DIE_STATISTICS`
 
 **Inputs:** the raw `waferMap`.
 
-`die_total` counts entries `!= 0`; `die_fail` counts entries `== 2`.
+The rule counts entries `!= 0` as `die_total` and entries `== 2` as `die_fail`,
+and computes the failure rate as `die_fail / die_total`.
 
-This rule is independently verifiable against the dataset itself: WM811K's
-`dieSize` field is the die count for the wafer, and `die_total` computed from the
-map reproduces it **exactly on 60,000 of 60,000 sampled wafers**. The check runs
-as a test (`test_ingest_contract.py`), so a regression in the counting or in
-normalization ordering breaks the build rather than silently shifting every
-failure rate in the system. Failure rate
-is `die_fail / die_total`. Radial and edge concentration statistics presented to
-the agent are computed from the raw map by binning die by normalized radius from
-the wafer centroid. These are measured, not modelled.
+The dataset verifies this rule independently. WM811K's `dieSize` field holds the
+die count for the wafer, and `die_total` computed from the map reproduces it
+exactly on 60,000 of 60,000 sampled wafers. The check runs as a test in
+`test_ingest_contract.py`, so a regression in the counting or in the
+normalization ordering breaks the build instead of silently shifting every
+failure rate in the system.
+
+The radial and edge concentration statistics presented to the agent come from the
+raw map, computed by binning die by normalized radius from the wafer centroid.
+These values are measured rather than modelled.
 
 ### `EXCURSION_RESOLUTION`
 
 **Inputs:** the real `failureType` labels of a lot's wafers.
 
 A lot enters `historical_excursions` only when it has labeled wafers and one
-`DefectPattern` accounts for the plurality of them. `observed_pattern` is that
-label and `pattern_share` is its fraction — both measured from real labels. The
-`resolved_cause` is a **fixed mapping** from defect pattern to cause category,
-not an inference:
+`DefectPattern` accounts for the plurality of them. `observed_pattern` holds that
+label and `pattern_share` holds its fraction, and both come from real labels. The
+`resolved_cause` comes from a fixed mapping from defect pattern to cause
+category, not from an inference:
 
 | Observed pattern | Resolved cause | Why this mapping |
 | --- | --- | --- |
@@ -169,23 +174,24 @@ not an inference:
 | `near_full` | `recipe_change` | Near-total failure tracks a gross process or recipe fault |
 | `none` | `unknown` | No pattern, no attributable cause |
 
-This table is the **entire** semantic content of the cause labels. It is a
-documented convention of this repository, not fab knowledge, and the console
-displays it as such. `resolution_text` is generated from the real measured values
-of that lot (pattern, share, die failure rate, wafer count) by a fixed template;
-it contains no claim that is not a restatement of a real measurement.
+This table holds the entire semantic content of the cause labels. It is a
+documented convention of this repository rather than fab knowledge, and the
+console displays it as such. A fixed template generates `resolution_text` from
+the real measured values of that lot, covering pattern, share, die failure rate,
+and wafer count. Every claim in that text restates a real measurement.
 
 ### `PROCESS_EVENT_DERIVE`
 
-**Inputs:** `LOT_ORDINAL`, `LOT_DATE`, `waferIndex` structure within the lot, and
-the lot's real die-failure statistics.
+**Inputs:** `LOT_ORDINAL`, `LOT_DATE`, the `waferIndex` structure within the lot,
+and the lot's real die-failure statistics.
 
-Process events are derived so that the retrieval and grounding machinery has a
-non-trivial evidence corpus with a **known ground truth**, which is what makes
-the grounding test suite meaningful: the harness knows exactly which evidence IDs
-exist, so a citation to anything else is provably a fabrication.
+The rule derives process events so that the retrieval and grounding machinery has
+a non-trivial evidence corpus with a known ground truth. That known ground truth
+is what makes the grounding test suite meaningful, because the harness knows
+exactly which evidence IDs exist and any citation to anything else is provably a
+fabrication.
 
-For each lot, events are emitted from real structural facts only:
+For each lot, the rule emits events from real structural facts only:
 
 | Event | Emitted when | Attributes (all real measurements) |
 | --- | --- | --- |
@@ -194,14 +200,15 @@ For each lot, events are emitted from real structural facts only:
 | `failure_rate_step` | The lot's die failure rate differs from the previous lot by ordinal by more than one standard deviation of the dataset-wide rate | Both rates, the delta, the dataset standard deviation |
 | `die_size_shift` | The lot's `dieSize` differs from the previous lot by ordinal | Both die sizes |
 
-Every attribute is a real value read from or counted in the dataset. The event
-`category` is assigned by a fixed mapping (`wafer_index_gap` and `partial_lot` to
-`handling_mechanical`, `failure_rate_step` to `tool_drift`, `die_size_shift` to
-`recipe_change`). The `summary` is a fixed template over the real attributes.
+Every attribute holds a real value read from or counted in the dataset. A fixed
+mapping assigns the event `category`: `wafer_index_gap` and `partial_lot` map to
+`handling_mechanical`, `failure_rate_step` maps to `tool_drift`, and
+`die_size_shift` maps to `recipe_change`. A fixed template over the real
+attributes produces the `summary`.
 
-**No event names a tool, a chamber, a recipe, an operator, or a timestamp**,
-because the dataset contains none of those. The agent is therefore structurally
-unable to cite one, and the guardrail suite asserts that it does not invent one.
+No event names a tool, a chamber, a recipe, an operator, or a timestamp, because
+the dataset contains none of those. The agent is therefore structurally unable to
+cite one, and the guardrail suite asserts that it does not invent one.
 
 ## 3. Evidence identifiers
 
@@ -214,16 +221,16 @@ Every element the agent may cite carries a stable `evidence_id`:
 | `similar_lot` | `hx:{lot_name}` | `hx:lot00891` |
 | `process_event` | `pe:{lot_name}:{ordinal}` | `pe:lot00891:2` |
 
-The set of IDs assembled for a request is hashed into
-`hypothesis_requests.context_hash` and stored verbatim in
+The context builder hashes the set of IDs assembled for a request into
+`hypothesis_requests.context_hash` and stores them verbatim in
 `hypothesis_requests.evidence_ids`. The grounding gate resolves every citation
-against exactly that set. An unresolvable citation is dropped and the drop is
-audited; if nothing survives, the request is recorded as an abstention.
+against exactly that set. It drops an unresolvable citation and audits the drop,
+and when nothing survives it records the request as an abstention.
 
-## 4. What is never stored
+## 4. What the system never stores
 
 - Generated or augmented wafer maps.
-- Labels not present in WM811K and not produced by a human using this console.
+- Labels absent from WM811K and not produced by a human using this console.
 - Tool names, chamber IDs, recipe names, operator IDs, or production timestamps.
 - Any metric in the eval report computed against anything other than real human
   labels or real reviewer decisions.
