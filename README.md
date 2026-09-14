@@ -1,23 +1,42 @@
+<div align="center">
+
 # yieldloop
 
-**yieldloop triages defects on wafer maps and learns from the engineer who
-reviews them.**
+**Triage defects on wafer maps. Learn from the engineer who reviews them.**
 
-A semiconductor fab produces wafer maps faster than its engineers can read them.
-WM811K, the real dataset this runs on, holds 811,457 of them, and 638,507 carry
-no human label at all. yieldloop sorts each map into one of nine defect patterns
-and attaches a calibrated confidence. It commits the 87.75% it is confident
-about and sends the rest to a review console that an engineer clears from the
-keyboard. Where the model is least sure, the console withholds its guess, so the
-engineer answers cold. Every answer an engineer gives returns to the training
-set. A separate agent proposes root causes for the lots that get flagged, and it
-cites only the evidence retrieved for it.
+[![accuracy](https://img.shields.io/badge/holdout%20accuracy-96.36%25-1d6fd0?style=flat-square)](#results-on-the-holdout-split)
+[![automated](https://img.shields.io/badge/committed%20without%20a%20human-87.75%25-1d6fd0?style=flat-square)](#the-human-loop)
+[![escaped errors](https://img.shields.io/badge/escaped%20errors-0.44%25-1d6fd0?style=flat-square)](#the-human-loop)
+[![fabricated citations](https://img.shields.io/badge/fabricated%20citations-0-1d6fd0?style=flat-square)](#the-guardrails)
+
+[![tests](https://img.shields.io/badge/tests-403%20passing-2f8c46?style=flat-square)](#testing)
+[![mocks](https://img.shields.io/badge/mocks-none-2f8c46?style=flat-square)](#testing)
+[![python](https://img.shields.io/badge/python-3.12-3776ab?style=flat-square&logo=python&logoColor=white)](pyproject.toml)
+[![react](https://img.shields.io/badge/react-18-61dafb?style=flat-square&logo=react&logoColor=black)](frontend/package.json)
+[![license](https://img.shields.io/badge/license-Apache%202.0-6b7280?style=flat-square)](LICENSE)
+
+<br>
 
 [![architecture](docs/diagrams/yieldloop-architecture.png)](docs/diagrams/yieldloop-architecture.html)
 
-The four system diagrams sit on one page at [`docs/index.html`](docs/index.html).
-That page covers the architecture, the routing bands, the human loop, and the
-guarded agent call.
+<sub><b><a href="docs/index.html">Open the interactive diagrams</a></b> to explore the architecture, the routing bands, the human loop, and the guarded agent call.</sub>
+
+</div>
+
+<br>
+
+A semiconductor fab produces wafer maps faster than its engineers can read them.
+WM811K, the real dataset this runs on, holds 811,457 of them, and 638,507 carry
+no human label at all.
+
+yieldloop sorts each map into one of nine defect patterns and attaches a
+calibrated confidence. It commits the 87.75% it is confident about. It sends the
+rest to a review console that an engineer clears from the keyboard.
+
+Where the model is least sure, the console withholds its guess, so the engineer
+answers cold. Every answer an engineer gives returns to the training set. A
+separate agent proposes root causes for the lots that get flagged, and it cites
+only the evidence retrieved for it.
 
 | | Measured on 26,741 held-out wafers |
 | --- | --- |
