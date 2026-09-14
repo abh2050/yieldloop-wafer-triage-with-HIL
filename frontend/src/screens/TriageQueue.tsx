@@ -75,7 +75,7 @@ export function TriageQueue() {
                   ) : (
                     <span
                       data-testid="prediction-withheld"
-                      title="Below the confidence floor: withheld so it cannot anchor the reviewer"
+                      title="The confidence fell below the floor, so the console withholds the prediction to keep it from anchoring the reviewer"
                       className="text-slate-500"
                     >
                       withheld

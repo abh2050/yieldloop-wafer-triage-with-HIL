@@ -1,8 +1,7 @@
 # yieldloop evaluation report
 
-All metrics are computed from the real WM811K dataset and from decisions real 
-reviewers made in this console. There is no synthetic ground truth anywhere in 
-this report.
+Every metric here comes from the real WM811K dataset and from decisions real 
+reviewers made in this console. This report contains no synthetic ground truth.
 
 **Gate: PASS** · 16.7s
 
@@ -15,9 +14,9 @@ never seen.
 
 | Metric | Model | Majority-class baseline | Reading |
 | --- | --- | --- | --- |
-| Accuracy | 96.36% | 86.38% | Misleading alone: 85% of labels are `none` |
-| Macro F1 | 0.8307 | 0.1030 | The number that separates a useful model from a constant one |
-| Balanced accuracy | 87.35% | 11.11% | Macro recall; equal weight per class |
+| Accuracy | 96.36% | 86.38% | Misleads on its own, because 85% of labels are `none` |
+| Macro F1 | 0.8307 | 0.1030 | Weights every class equally, so rare classes count |
+| Balanced accuracy | 87.35% | 11.11% | Averages recall across classes with equal weight |
 
 
 ### Per-class recall
@@ -46,11 +45,11 @@ confidences have to mean something. Temperature scaling cannot change which
 class is predicted, so accuracy above is unaffected and the improvement below 
 is real.
 
-The last row is the one that bears on whether automation is safe: it measures 
-only the band auto-commit governs, rather than averaging across a range most 
-predictions never reach. Max calibration error ignores bins holding fewer than 
-30 predictions, since a two-sample bin admits accuracies of only 0, 0.5 or 1 
-and its apparent gap is noise.
+The last row bears on whether automation is safe. It measures only the band 
+that auto-commit governs rather than averaging across a range most predictions 
+never reach. Max calibration error ignores bins holding fewer than 30 
+predictions, because a two-sample bin admits accuracies of only 0, 0.5 or 1 
+and its apparent gap carries noise.
 
 | Metric | Value |
 | --- | --- |
@@ -100,10 +99,10 @@ them, which is the column a fab actually cares about.
 only at matched label counts. Both arms use the same splits, hyperparameters 
 and seed and differ only in which wafers were chosen.
 
-The active arm is simulated iteratively: the selector at each step is trained 
-only on what has been acquired so far. Selecting in one shot with a model that 
-had seen the whole dataset would leak it into the selection, which is the most 
-common way this experiment is reported wrongly.
+The simulation runs the active arm iteratively. The selector at each step 
+trains only on what it has acquired so far. Selecting in one shot with a model 
+that had seen the whole dataset would leak the dataset into the selection, and 
+that leak is how this experiment usually gets reported wrongly.
 
 | Labels | Macro F1 (active) | Macro F1 (random) | Delta |
 | --- | --- | --- | --- |
@@ -122,7 +121,7 @@ common way this experiment is reported wrongly.
 | Label saving | not reached by both arms |
 
 
-> Rare-class recall is **omitted**, not hidden: the smallest rare class has 8 wafers in this evaluation set, below the 30 needed for a recall figure to mean anything. At that size recall can only take a few discrete values, so movement between the arms is quantization rather than signal, and an average is only as trustworthy as its weakest term. Per-class recall on the full holdout is in the table above.
+> This report **omits** rare-class recall and says so here. The smallest rare class has 8 wafers in this evaluation set, below the 30 a recall figure needs to carry meaning. At that size recall takes only a few discrete values, so movement between the arms reflects quantization rather than signal, and an average is only as trustworthy as its weakest term. The table above reports per-class recall on the full holdout.
 
 > The two arms are **identical at 1,000 labels** by construction, not by coincidence: active learning has no model to select with until it has labels, so it starts from a random seed set of that size. The matching scores confirm the harness is comparing what it claims. That point contributes a zero to the mean delta, so the mean understates the effect; the comparison begins at the second budget.
 
@@ -130,13 +129,14 @@ common way this experiment is reported wrongly.
 
 ## Root cause agent
 
-Grounding rate is the fraction of proposed hypotheses whose citations all 
-resolved to evidence in the context bundle. A rate below 100% does not mean a 
-reviewer saw something wrong -- the gate dropped those claims -- it means the 
-model attempted a fabrication.
+Grounding rate reports the fraction of proposed hypotheses whose citations all 
+resolved to evidence in the context bundle. A rate below 100% means the model 
+attempted a fabrication and the gate dropped those claims before any reviewer 
+saw them.
 
-Abstention rate is **not** minimized. Abstaining on a thin bundle is correct; a 
-rate of zero against sparse evidence would mean the model is inventing support.
+Abstention rate stays deliberately **unminimized**. Abstaining on a thin bundle 
+is the correct answer, and a rate of zero against sparse evidence would mean the 
+model is inventing support.
 
 | Metric | Value |
 | --- | --- |
@@ -155,14 +155,14 @@ rate of zero against sparse evidence would mean the model is inventing support.
 
 ## Reviewer agreement
 
-Override rate alone is ambiguous: a low rate can mean the model is good, or 
-that reviewers are deferring to it. Splitting by whether the prediction was 
-visible separates the two, which is why every decision records what the 
-reviewer could see.
+Override rate alone reads two ways. A low rate can mean the model is good, or 
+it can mean reviewers are deferring to it. Splitting the rate by whether the 
+console showed the prediction separates the two, so every decision records what 
+the reviewer could see.
 
-A large positive anchoring delta -- reviewers disagreeing far more often when 
-they could not see the prediction -- means visible predictions are buying 
-agreement rather than earning it, and the confidence floor should rise.
+A large positive anchoring delta means reviewers disagreed far more often when 
+they could not see the prediction. Visible predictions are then buying agreement 
+rather than earning it, and the confidence floor should rise.
 
 | Metric | Value |
 | --- | --- |
@@ -171,7 +171,7 @@ agreement rather than earning it, and the confidence floor should rise.
 | Override rate (all) | 84.62% |
 | Override rate (prediction shown) | 0.00% |
 | Override rate (prediction withheld) | 84.62% |
-| Anchoring delta | not measurable — one regime has no decisions |
+| Anchoring delta | not measurable, because one regime has no decisions |
 | Median decision time | 0.01 s |
 | p95 decision time | 0.02 s |
 
@@ -182,8 +182,8 @@ agreement rather than earning it, and the confidence floor should rise.
 
 55 adversarial checks: **PASS**
 
-The suite asserts a property, not a rate: for every hostile input, the layer 
-must fail closed. A single pass-through is a failure regardless of how many 
-other cases were handled. It runs without a database or an API key, so it gates 
-every pull request.
+The suite asserts a property rather than a rate. The layer must fail closed on 
+every hostile input, so a single pass-through fails the suite regardless of how 
+many other cases it handled. The suite runs without a database or an API key, so 
+it gates every pull request.
 

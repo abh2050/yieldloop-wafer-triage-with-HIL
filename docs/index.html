@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>yieldloop — diagrams</title>
+    <title>yieldloop system diagrams</title>
     <style>
       :root {
         --bg: #f6f7f9;
@@ -166,29 +166,29 @@
 
     <main>
       <header class="page">
-        <h1>yieldloop — system diagrams</h1>
+        <h1>yieldloop system diagrams</h1>
         <p>
-          A wafer map defect triage console with a human decision loop, active
-          learning, and a root cause agent that cannot cite evidence it was not
-          given.
+          yieldloop classifies wafer maps, routes the uncertain ones to an
+          engineer, and returns every decision to the training set. A separate
+          agent proposes root causes and cites only the documents retrieved for
+          it.
         </p>
         <p>
-          Every figure on this page is measured from the running system, not
-          estimated. Each diagram below is also available as an interactive page
-          with light and dark themes, pan and zoom, search, and relationship
-          tracing.
+          Every figure on this page comes from the running system. Each diagram
+          below also opens as an interactive page with light and dark themes,
+          pan and zoom, search, and relationship tracing.
         </p>
       </header>
 
       <section id="architecture">
         <h2><span class="num">01</span> Architecture</h2>
         <p class="lede">
-          How the pieces fit. Three things this shows that a file listing cannot:
-          the classifier and the language model are separate paths and no wafer
-          map ever reaches OpenAI; the guardrails sit between retrieval and the
-          model on both sides, so there is no edge into it that skips them; and
-          the arrow back from the console into Postgres is the loop closing,
-          because those decisions are what the next training round reads.
+          This diagram shows how the pieces fit together. The classifier and
+          the language model run on separate paths, so no wafer map ever reaches
+          OpenAI. The guardrails sit between retrieval and the model on both
+          sides, so every edge into the model passes through them. The arrow
+          running from the console back into Postgres closes the loop, because
+          the next training round reads those decisions.
         </p>
         <figure>
           <a href="diagrams/yieldloop-architecture.html">
@@ -207,13 +207,13 @@
       <section id="routing">
         <h2><span class="num">02</span> Routing bands</h2>
         <p class="lede">
-          What automation costs, and who is allowed to see the model's guess.
+          These bands set what automation costs and who sees the model's guess.
           Above the auto-commit threshold the system commits without a human.
           Inside the uncertainty band a reviewer sees the prediction. Below the
-          confidence floor the prediction is withheld — the API omits the field
-          rather than the client hiding it — because a weak guess anchors a
-          reviewer rather than helping them, and agreement bought that way is
-          the model's own error laundered back in as a human label.
+          confidence floor the API omits the prediction fields, so the client
+          never receives them. A weak guess anchors a reviewer, and agreement
+          bought that way launders the model's own error back in as a human
+          label.
         </p>
         <figure>
           <a href="diagrams/yieldloop-routing-bands.html">
@@ -228,22 +228,22 @@
           </figcaption>
         </figure>
         <p class="note">
-          <strong>Both thresholds are configuration, not constants.</strong> That
-          is what lets the evaluation harness sweep them to draw the tradeoff
-          curve, and every change is recorded with who made it and why.
+          <strong>Both thresholds live in configuration.</strong> The
+          evaluation harness sweeps them to draw the tradeoff curve, and the
+          system records every change with who made it and why.
         </p>
       </section>
 
       <section id="human-loop">
         <h2><span class="num">03</span> The human loop, closing</h2>
         <p class="lede">
-          The name is literal. Active learning chooses which unlabeled wafers are
-          worth a human's time, the reviewer answers in one keystroke with the
-          model's guess hidden, and the answer returns as training signal: a
-          reviewer label overrides the dataset's own, a newly labeled wafer
-          becomes a training example, and the wafer leaves the unlabeled pool.
-          Decisions are scoped to their split, so a holdout decision can never
-          leak into training.
+          The name describes the mechanism. Active learning chooses which
+          unlabeled wafers are worth a human's time. The reviewer answers in one
+          keystroke with the model's guess hidden. The answer then returns as
+          training signal. A reviewer label overrides the dataset's own, a newly
+          labeled wafer becomes a training example, and the wafer leaves the
+          unlabeled pool. Decisions stay scoped to their split, so a holdout
+          decision never leaks into training.
         </p>
         <figure>
           <a href="diagrams/yieldloop-human-loop.html">
@@ -258,10 +258,10 @@
           </figcaption>
         </figure>
         <p class="note">
-          <strong>There are two return paths, not one.</strong> Corrections
-          retrain the model. Separately, because every decision records what the
-          reviewer could see, the override rate splits two ways — and if people
-          disagree far more when the prediction is hidden, the visible
+          <strong>The loop carries two return paths.</strong> Corrections
+          retrain the model. Separately, every decision records what the
+          reviewer could see, so the override rate splits two ways. When people
+          disagree far more often with the prediction hidden, the visible
           predictions are buying agreement rather than earning it, and the
           confidence floor should rise.
         </p>
@@ -270,13 +270,13 @@
       <section id="guarded-agent">
         <h2><span class="num">04</span> A guarded hypothesis request</h2>
         <p class="lede">
-          The ordering is the design. Inputs are bounded and spend is checked
-          before a token is spent. Untrusted text is isolated as data while the
-          prompt is built, so it never reaches the instruction layer. Parsing and
-          grounding both run before anything is persisted, so an ungrounded claim
-          never becomes a database row. An empty evidence bundle abstains without
-          calling the model at all, because paying for a call that cannot
-          possibly be grounded is pure waste.
+          The ordering carries the design. The gates bound every input and
+          check spend before the system spends a token. Isolation wraps
+          untrusted text as data while the prompt is built, so it never reaches
+          the instruction layer. Parsing and grounding both run before anything
+          is persisted, so an ungrounded claim never becomes a database row. An
+          empty evidence bundle abstains without calling the model, because a
+          call that cannot be grounded wastes the money.
         </p>
         <figure>
           <a href="diagrams/yieldloop-guarded-agent.html">
@@ -291,24 +291,25 @@
           </figcaption>
         </figure>
         <p class="note">
-          <strong>Abstention is an answer, not an error.</strong> If no claim
+          <strong>Abstention answers the question.</strong> When no claim
           survives grounding, the console renders "insufficient evidence" with
-          the reason and the gaps named. A blank panel reads as a broken feature
+          the reason and names the gaps. A blank panel reads as a broken feature
           and trains reviewers to ignore the screen.
         </p>
       </section>
 
       <footer>
         <p>
-          Diagrams authored as typed specifications and rendered to standalone
-          HTML; each passes nine artifact checks with zero composition errors,
-          and each was checked in a real browser for containment and readability
-          at four desktop viewports.
+          Each diagram is authored as a typed specification and rendered to
+          standalone HTML. Each one passes nine artifact checks with zero
+          composition errors, and each was checked in a real browser for
+          containment and readability at four desktop viewports.
         </p>
         <p>
-          Data comes from the real
-          <a href="https://www.kaggle.com/datasets/qingyi/wm811k-wafer-map">WM811K wafer map dataset</a>,
-          which is not vendored in this repository and carries its own terms.
+          The data comes from the real
+          <a href="https://www.kaggle.com/datasets/qingyi/wm811k-wafer-map">WM811K wafer map dataset</a>.
+          This repository does not vendor it, and the dataset carries its own
+          terms.
         </p>
       </footer>
     </main>
