@@ -5,12 +5,7 @@
 **Triage defects on wafer maps. Learn from the engineer who reviews them.**
 
 [![accuracy](https://img.shields.io/badge/holdout%20accuracy-96.36%25-1d6fd0?style=flat-square)](#results-on-the-holdout-split)
-[![automated](https://img.shields.io/badge/committed%20without%20a%20human-87.75%25-1d6fd0?style=flat-square)](#the-human-loop)
-[![escaped errors](https://img.shields.io/badge/escaped%20errors-0.44%25-1d6fd0?style=flat-square)](#the-human-loop)
-[![fabricated citations](https://img.shields.io/badge/fabricated%20citations-0-1d6fd0?style=flat-square)](#the-guardrails)
-
 [![tests](https://img.shields.io/badge/tests-403%20passing-2f8c46?style=flat-square)](#testing)
-[![mocks](https://img.shields.io/badge/mocks-none-2f8c46?style=flat-square)](#testing)
 [![python](https://img.shields.io/badge/python-3.12-3776ab?style=flat-square&logo=python&logoColor=white)](pyproject.toml)
 [![react](https://img.shields.io/badge/react-18-61dafb?style=flat-square&logo=react&logoColor=black)](frontend/package.json)
 [![license](https://img.shields.io/badge/license-Apache%202.0-6b7280?style=flat-square)](LICENSE)
