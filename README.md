@@ -1,13 +1,17 @@
 # yieldloop
 
-yieldloop reviews wafer maps from a semiconductor fab. A convolutional network
-classifies each map into one of nine defect patterns and reports a calibrated
-confidence. The system commits the confident predictions on its own and sends
-the rest to a review console, where an engineer decides each case with one
-keystroke. On the least confident cases the console withholds the model's guess,
-so the engineer answers independently. Every decision an engineer makes returns
-to the training set. A separate agent proposes root causes for flagged lots and
-cites only the documents retrieved for it.
+**yieldloop triages defects on wafer maps and learns from the engineer who
+reviews them.**
+
+A semiconductor fab produces wafer maps faster than its engineers can read them.
+WM811K, the real dataset this runs on, holds 811,457 of them, and 638,507 carry
+no human label at all. yieldloop sorts each map into one of nine defect patterns
+and attaches a calibrated confidence. It commits the 87.75% it is confident
+about and sends the rest to a review console that an engineer clears from the
+keyboard. Where the model is least sure, the console withholds its guess, so the
+engineer answers cold. Every answer an engineer gives returns to the training
+set. A separate agent proposes root causes for the lots that get flagged, and it
+cites only the evidence retrieved for it.
 
 [![architecture](docs/diagrams/yieldloop-architecture.png)](docs/diagrams/yieldloop-architecture.html)
 
