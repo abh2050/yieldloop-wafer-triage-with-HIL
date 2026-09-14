@@ -1,6 +1,6 @@
 # Architecture
 
-yieldloop classifies wafer map defect patterns, decides which cases a human
+Yieldloop classifies wafer map defect patterns, decides which cases a human
 should look at, captures those decisions as training signal, and produces root
 cause hypotheses for lots flagged for excursion review. Each hypothesis cites
 retrieved evidence, and the agent abstains when the evidence does not support

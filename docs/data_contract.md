@@ -1,6 +1,6 @@
 # Data contract
 
-Everything yieldloop stores falls into three categories. A row holds a real field
+Everything Yieldloop stores falls into three categories. A row holds a real field
 from the WM811K wafer map dataset, a real human action captured by the console,
 or a derived value produced by a deterministic rule documented on this page. No
 fourth category exists. The system generates no wafer map, invents no defect

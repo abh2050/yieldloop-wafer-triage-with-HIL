@@ -1,6 +1,6 @@
 <div align="center">
 
-# yieldloop
+# Yieldloop
 
 **Triage defects on wafer maps. Learn from the engineer who reviews them.**
 
@@ -29,7 +29,7 @@ A semiconductor fab produces wafer maps faster than its engineers can read them.
 WM811K, the real dataset this runs on, holds 811,457 of them, and 638,507 carry
 no human label at all.
 
-yieldloop sorts each map into one of nine defect patterns and attaches a
+Yieldloop sorts each map into one of nine defect patterns and attaches a
 calibrated confidence. It commits the 87.75% it is confident about. It sends the
 rest to a review console that an engineer clears from the keyboard.
 
@@ -76,7 +76,7 @@ no pattern. `near_full` appears on 149 wafers out of 811,457. A model that alway
 predicts "no pattern" scores 85% accuracy and finds nothing, so this project
 reports macro F1, balanced accuracy, and per-class recall alongside accuracy.
 
-## What yieldloop does about it
+## What Yieldloop does about it
 
 The classifier assigns each wafer map one of nine defect patterns and attaches a
 calibrated confidence, so the number means what it says.

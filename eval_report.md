@@ -1,4 +1,4 @@
-# yieldloop evaluation report
+# Yieldloop evaluation report
 
 Every metric here comes from the real WM811K dataset and from decisions real 
 reviewers made in this console. This report contains no synthetic ground truth.
