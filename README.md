@@ -227,6 +227,7 @@ The interactive version at
 supports themes, pan and zoom, search, and relationship tracing. Its source spec
 is [`yieldloop-routing-bands.json`](docs/diagrams/yieldloop-routing-bands.json).
 
+```mermaid
 flowchart TD
 
 subgraph group_data_models["Data and Models"]
@@ -328,6 +329,7 @@ class node_active_sampling,node_prediction_router,node_review_queue,node_review_
 class node_retrieval_context,node_retrieval_index,node_hypothesis_agent,node_guardrails,node_agent_client toneMint
 class node_api,node_api_routes,node_console toneRose
 class node_database,node_audit,node_telemetry,node_engineer,node_openai toneIndigo
+```
 
 Every decision returns as training signal. A reviewer label overrides the
 dataset's own annotation for that wafer. A reviewer label on a previously
@@ -375,7 +377,7 @@ as "insufficient evidence" together with the reason.
 | | |
 | --- | --- |
 | ![triage](docs/screenshots/02-triage-queue-prediction-withheld.png) | ![model health](docs/screenshots/04-model-health-calibration-and-per-class-recall.png) |
-| The triage queue. Every row reads **withheld**, because these wafers fell below the confidence floor and the API omits the fields | Model health. The screen reports calibration before and after fitting, and reports override rate twice so the anchoring effect stays visible |
+| The triage queue. Every row reads **withheld**, because these wafers fell below the confidence floor and the API omits the fields | Model health. The screen reports calibration before and after fitt[...]
 
 ![audit trail](docs/screenshots/05-audit-trail-hash-chain-intact.png)
 
