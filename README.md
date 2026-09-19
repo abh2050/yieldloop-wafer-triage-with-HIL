@@ -227,6 +227,108 @@ The interactive version at
 supports themes, pan and zoom, search, and relationship tracing. Its source spec
 is [`yieldloop-routing-bands.json`](docs/diagrams/yieldloop-routing-bands.json).
 
+flowchart TD
+
+subgraph group_data_models["Data and Models"]
+  node_ingest["Ingest pipeline<br/>[loader.py]"]
+  node_classifier["Defect classifier<br/>[classifier.py]"]
+  node_calibration["Confidence calibration<br/>[calibrate.py]"]
+  node_model_registry["Model registry<br/>[registry.py]"]
+end
+
+subgraph group_routing_review["Routing and Review"]
+  node_active_sampling["Active sampler<br/>[scheduler.py]"]
+  node_prediction_router["Prediction router"]
+  node_review_queue["Review queues<br/>[queue.py]"]
+  node_review_decisions["Review decisions<br/>[decisions.py]"]
+end
+
+subgraph group_agent_guardrails["Agent and Guardrails"]
+  node_retrieval_context["Evidence builder<br/>[context_builder.py]"]
+  node_retrieval_index[("Similarity index<br/>[index.py]")]
+  node_hypothesis_agent["Hypothesis agent<br/>[hypothesis.py]"]
+  node_guardrails{{"Agent guardrails"}}
+  node_agent_client["Agent transport<br/>[client.py]"]
+end
+
+subgraph group_api_console["API and Console"]
+  node_api["FastAPI service<br/>[main.py]"]
+  node_api_routes["API routes"]
+  node_console["Review console<br/>[App.tsx]"]
+end
+
+subgraph group_persistence_health["Persistence and Health"]
+  node_database[("PostgreSQL<br/>[models.py]")]
+  node_audit["Audit trail<br/>[audit.py]"]
+  node_telemetry["Model telemetry<br/>[metrics.py]"]
+end
+
+node_wafer_dataset[("WM811K dataset")]
+node_engineer(("Process engineer"))
+node_openai{{"OpenAI model"}}
+
+node_wafer_dataset -->|"loads maps"| node_ingest
+node_ingest -->|"writes wafers"| node_database
+node_database -->|"provides data"| node_classifier
+node_model_registry -->|"loads artifact"| node_classifier
+node_classifier -->|"calibrates scores"| node_calibration
+node_active_sampling -->|"reads unlabeled"| node_database
+node_active_sampling -->|"fills label gate"| node_review_queue
+node_prediction_router -->|"runs inference"| node_classifier
+node_prediction_router -->|"checks confidence"| node_calibration
+node_prediction_router -->|"routes cases"| node_review_queue
+node_prediction_router -->|"records predictions"| node_database
+node_engineer -->|"reviews wafers"| node_console
+node_console -->|"calls API"| node_api
+node_api -->|"dispatches requests"| node_api_routes
+node_api_routes -->|"reads queues"| node_review_queue
+node_api_routes -->|"submits decisions"| node_review_decisions
+node_review_decisions -->|"writes labels"| node_database
+node_review_decisions -->|"records action"| node_audit
+node_api_routes -->|"starts analysis"| node_hypothesis_agent
+node_hypothesis_agent -->|"builds evidence"| node_retrieval_context
+node_retrieval_context -->|"reads lot data"| node_database
+node_retrieval_context -->|"searches precedents"| node_retrieval_index
+node_hypothesis_agent -->|"guards prompt"| node_guardrails
+node_guardrails -->|"permits call"| node_agent_client
+node_agent_client -.->|"requests hypotheses"| node_openai
+node_hypothesis_agent -->|"audits response"| node_audit
+node_api_routes -->|"serves health"| node_telemetry
+node_telemetry -->|"reads metrics"| node_database
+
+click node_ingest "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/ingest/loader.py"
+click node_classifier "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/models/classifier.py"
+click node_calibration "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/models/calibrate.py"
+click node_model_registry "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/models/registry.py"
+click node_active_sampling "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/sampling/scheduler.py"
+click node_prediction_router "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/scripts/route_predictions.py"
+click node_review_queue "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/review/queue.py"
+click node_review_decisions "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/review/decisions.py"
+click node_retrieval_context "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/retrieval/context_builder.py"
+click node_retrieval_index "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/retrieval/index.py"
+click node_hypothesis_agent "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/agent/hypothesis.py"
+click node_guardrails "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/tree/main/src/yieldloop/guardrails"
+click node_agent_client "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/agent/client.py"
+click node_api "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/api/main.py"
+click node_api_routes "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/tree/main/src/yieldloop/api/routes"
+click node_console "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/frontend/src/App.tsx"
+click node_database "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/db/models.py"
+click node_audit "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/guardrails/audit.py"
+click node_telemetry "https://github.com/abh2050/yieldloop-wafer-triage-with-hil/blob/main/src/yieldloop/telemetry/metrics.py"
+
+classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
+classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+class node_ingest,node_classifier,node_calibration,node_model_registry toneBlue
+class node_active_sampling,node_prediction_router,node_review_queue,node_review_decisions,node_wafer_dataset toneAmber
+class node_retrieval_context,node_retrieval_index,node_hypothesis_agent,node_guardrails,node_agent_client toneMint
+class node_api,node_api_routes,node_console toneRose
+class node_database,node_audit,node_telemetry,node_engineer,node_openai toneIndigo
+
 Every decision returns as training signal. A reviewer label overrides the
 dataset's own annotation for that wafer. A reviewer label on a previously
 unlabeled wafer becomes a new training example. A reviewed wafer leaves the
